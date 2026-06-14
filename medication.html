@@ -181,6 +181,76 @@
   <script src="medication.js"></script>
   <script src="tab-bar.js"></script>
   <script src="phone.js"></script>
+  <script>
+  // ── Translation for medication page ──────────────────────────────────────────
+  function translateText(text, lang) {
+    if (lang === 'en') return Promise.resolve(text);
+    return fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=${lang}&dt=t&q=${encodeURIComponent(text)}`)
+      .then(r => r.json()).then(d => d[0].map(x => x[0]).join('')).catch(() => text);
+  }
+
+  async function initTranslations() {
+    const lang = localStorage.getItem('caretaker_lang') || 'en';
+
+    const els = [
+      { sel: 'header h1',            en: 'Medication Tracker' },
+      { sel: '#buy-pills-btn',        en: 'Buy Pills' },
+      { sel: '#print-btn',            en: 'Print History' },
+      { sel: '#scan-label-title',     en: 'Point at the medication label' },
+      { sel: '#scan-start-cam-btn',   en: 'Enable Camera' },
+      { sel: '#scan-cam-start p',     en: 'Allow camera access to scan the label' },
+      { sel: '#scan-analyzing p',     en: 'Reading label…' },
+      { sel: '#scan-capture-btn',     en: '📷 Capture Label' },
+      { sel: '#scan-label-btn',       en: '📷 Scan Label' },
+      { sel: '#modal-cancel',         en: 'Cancel' },
+      { sel: '#modal-save',           en: 'Save' },
+      { sel: '#restock-cancel',       en: 'Cancel' },
+      { sel: '#restock-save',         en: 'Add Pills' },
+      { sel: '#card-btn-edit',        en: 'CHANGE' },
+      { sel: '#card-btn-restock',     en: 'RESTOCK PILLS' },
+      { sel: '#card-btn-delete',      en: 'DELETE' },
+      { sel: '#card-btn-cancel',      en: 'Cancel' },
+      { sel: '#buy-pills-btn',        en: 'Buy Pills' },
+      { sel: '#buy-pills-close',      en: '×' },
+    ];
+
+    const labelMap = [
+      { sel: '.field label[for="input-name"], #modal .field:nth-child(3) label', en: 'Medication name' },
+    ];
+
+    // Translate all static elements in parallel
+    const results = await Promise.all(els.map(e => translateText(e.en, lang)));
+    els.forEach((e, i) => {
+      const el = document.querySelector(e.sel);
+      if (el) el.textContent = results[i];
+    });
+
+    // Field labels inside modal
+    const fieldLabels = [
+      { index: 0, en: 'Medication name' },
+      { index: 1, en: 'Days of the week' },
+      { index: 2, en: 'Times per day' },
+      { index: 3, en: 'Reminder times' },
+      { index: 4, en: 'Pills remaining' },
+      { index: 5, en: 'Assign to' },
+    ];
+    const modalLabels = document.querySelectorAll('#modal .field label');
+    const labelResults = await Promise.all(fieldLabels.map(f => translateText(f.en, lang)));
+    fieldLabels.forEach((f, i) => {
+      if (modalLabels[f.index]) modalLabels[f.index].textContent = labelResults[i];
+    });
+
+    // Buy pills heading
+    const bph = document.querySelector('.buy-pills-box h2');
+    if (bph) bph.textContent = await translateText('Running Low', lang);
+
+    // Restock modal heading label
+    const rh = document.querySelector('#restock-modal label');
+    if (rh) rh.textContent = await translateText('Pills to add', lang);
+  }
+
+  initTranslations();
+  </script>
   <script src="side-panel.js"></script>
 </body>
 </html>
