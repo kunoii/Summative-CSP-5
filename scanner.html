@@ -128,18 +128,30 @@
     }
     #status-dot { background: var(--border); }
 
-    /* ── Scan button ── */
-    #controls { width: 100%; max-width: 1100px; margin-top: 10px; }
-    #scan-btn {
-      width: 100%; padding: 14px;
-      font-size: 17px; font-weight: 700;
-      background: var(--navy); color: var(--accent);
-      border: none; border-radius: 12px;
-      cursor: pointer; font-family: var(--font);
-      transition: opacity 0.15s;
+    /* ── Scan button (camera shutter) ── */
+    #controls {
+      width: 100%; max-width: 1100px; margin-top: 14px;
+      display: flex; justify-content: center;
     }
-    #scan-btn:hover:not(:disabled) { opacity: 0.88; }
-    #scan-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    #scan-btn {
+      width: 76px; height: 76px; border-radius: 50%;
+      background: #fff;
+      border: 5px solid var(--navy);
+      box-shadow: 0 0 0 3px #fff, 0 0 0 6px var(--navy);
+      cursor: pointer; position: relative;
+      transition: transform 0.1s, opacity 0.15s;
+      -webkit-tap-highlight-color: transparent;
+      display: flex; align-items: center; justify-content: center;
+    }
+    #scan-btn::after {
+      content: '';
+      width: 36px; height: 36px; border-radius: 50%;
+      background: var(--navy);
+      transition: background 0.15s;
+    }
+    #scan-btn:hover:not(:disabled) { transform: scale(1.06); }
+    #scan-btn:active:not(:disabled) { transform: scale(0.94); }
+    #scan-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
     /* ── Result panel ── */
     #result-panel {
@@ -260,7 +272,7 @@
   </div>
 
   <div id="controls">
-    <button id="scan-btn" disabled>Scan Object</button>
+    <button id="scan-btn" disabled aria-label="Scan Object"></button>
   </div>
 
   <div id="result-panel">
