@@ -36,7 +36,7 @@
   function doLogout() {
     localStorage.removeItem('auth_session');
     sessionStorage.removeItem('auth_session');
-    window.location.href = 'index.html';
+    window.location.href = 'home.html';
   }
 
   function applyTheme(id) {
