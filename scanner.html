@@ -16,7 +16,7 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: calc(12px + env(safe-area-inset-top)) 14px calc(12px + 68px + env(safe-area-inset-bottom));
+      padding: calc(12px + env(safe-area-inset-top)) 14px calc(8px + 68px + env(safe-area-inset-bottom));
     }
 
     /* ── Top bar ── */
@@ -129,16 +129,13 @@
     #status-dot { background: var(--border); }
 
     /* ── Scan button (camera shutter) ── */
-    #controls {
-      width: 100%; max-width: 1100px; margin-top: 14px;
-      display: flex; justify-content: center;
-    }
     #scan-btn {
+      position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
       width: 76px; height: 76px; border-radius: 50%;
       background: #fff;
       border: 5px solid var(--navy);
       box-shadow: 0 0 0 3px #fff, 0 0 0 6px var(--navy);
-      cursor: pointer; position: relative;
+      cursor: pointer; z-index: 10;
       transition: transform 0.1s, opacity 0.15s;
       -webkit-tap-highlight-color: transparent;
       display: flex; align-items: center; justify-content: center;
@@ -149,8 +146,8 @@
       background: var(--navy);
       transition: background 0.15s;
     }
-    #scan-btn:hover:not(:disabled) { transform: scale(1.06); }
-    #scan-btn:active:not(:disabled) { transform: scale(0.94); }
+    #scan-btn:hover:not(:disabled) { transform: translateX(-50%) scale(1.06); }
+    #scan-btn:active:not(:disabled) { transform: translateX(-50%) scale(0.94); }
     #scan-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
     /* ── Result panel ── */
@@ -264,15 +261,12 @@
       <button id="start-btn">Start Camera</button>
       <p>Allow camera access to continue</p>
     </div>
+    <button id="scan-btn" disabled aria-label="Scan Object"></button>
   </div>
 
   <div id="status-bar">
     <div id="status-dot"></div>
     <span id="status-text">Camera off</span>
-  </div>
-
-  <div id="controls">
-    <button id="scan-btn" disabled aria-label="Scan Object"></button>
   </div>
 
   <div id="result-panel">
@@ -553,7 +547,7 @@
           { el: document.querySelector('.dashboard-btn'), text: 'Dashboard →' },
           { el: document.getElementById('cam-dashboard-btn'), text: '📋 All saved objects' },
           { el: document.getElementById('start-btn'), text: 'Enable Camera' },
-          { el: document.getElementById('scan-btn'), text: 'Scan Object' },
+          { el: null, text: 'Scan Object' }, // visual shutter button — no text content
           { el: document.getElementById('save-btn'), text: 'Save Object' },
           { el: document.getElementById('update-photo-btn'), text: '🔄 Update Photo' },
           { el: document.getElementById('save-confirm'), text: '✓ Saved! User will see this when they scan it.' },
