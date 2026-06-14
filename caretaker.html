@@ -230,13 +230,14 @@
         window.ctTranslations = { view: 'VIEW INSTRUCTIONS', change: 'EDIT INSTRUCTIONS', delete: 'DELETE', addObject: 'Add Object +', addObjectModal: 'Add Object', editObjectModal: 'Edit Object', noObjects: 'No objects yet. Use the scanner to add one.' };
         return;
       }
-      const [view, change, del, addObject] = await Promise.all([
+      const [view, change, del, addObject, noObjects] = await Promise.all([
         translateText('VIEW INSTRUCTIONS', lang),
         translateText('EDIT INSTRUCTIONS', lang),
         translateText('DELETE', lang),
         translateText('Add Object', lang),
+        translateText('No objects yet. Use the scanner to add one.', lang),
       ]);
-      window.ctTranslations = { view: view.toUpperCase(), change: change.toUpperCase(), delete: del.toUpperCase(), addObject: addObject + ' +' };
+      window.ctTranslations = { view: view.toUpperCase(), change: change.toUpperCase(), delete: del.toUpperCase(), addObject: addObject + ' +', noObjects };
     }
 
     async function initTranslations() {

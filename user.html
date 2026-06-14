@@ -602,18 +602,23 @@
       if (lang === 'en') return;
 
       const items = [
-        { el: document.querySelector('.topbar h1'),    text: 'Object Scanner' },
-        { el: startBtn,                                text: 'Start' },
-        { el: null,                                    text: 'Scan Object' }, // aria-label only — button is visual
-        { el: document.querySelector('#cam-start p'),  text: 'Allow camera access to start scanning' },
-        { el: speakAgainBtn,                           text: '🔊 Speak again' },
+        { el: document.querySelector('.topbar h1'),             text: 'Object Scanner' },
+        { el: startBtn,                                         text: 'Start' },
+        { el: document.querySelector('#cam-start p'),           text: 'Allow camera access to start scanning' },
+        { el: speakAgainBtn,                                    text: '🔊 Speak again' },
+        { el: document.getElementById('med-reminder-label'),    text: '💊 Time to take your meds' },
+        { el: document.getElementById('med-taken-btn'),         text: 'Meds Taken ✓' },
+        { el: document.getElementById('danger-title'),          text: 'Warning' },
+        { el: document.getElementById('danger-instr'),          text: 'Please contact your caretaker before touching this object.' },
+        { el: document.getElementById('danger-msg-btn'),        text: '💬 Message Caretaker' },
+        { el: document.getElementById('danger-call-btn'),       text: '📞 Call Caretaker' },
       ];
 
       const howToSteps = [
         { el: document.querySelector('#how-to p:nth-child(1)'), text: 'How to use' },
-        { el: document.querySelector('#how-to p:nth-child(2)'), text: '1. Tap Enable Camera and allow access.' },
+        { el: document.querySelector('#how-to p:nth-child(2)'), text: '1. Tap Start and allow camera access.' },
         { el: document.querySelector('#how-to p:nth-child(3)'), text: '2. Point the camera at an object.' },
-        { el: document.querySelector('#how-to p:nth-child(4)'), text: '3. Tap Scan Object — instructions will appear and be read aloud.' },
+        { el: document.querySelector('#how-to p:nth-child(4)'), text: '3. Tap the shutter button — instructions appear and are read aloud.' },
       ];
 
       [...items, ...howToSteps].forEach(({ el, text }) => {
@@ -623,7 +628,6 @@
           .then(data => { el.textContent = data[0].map(x => x[0]).join('') || text; })
           .catch(() => {});
       });
-
     }
 
     async function initUserTranslations() {
@@ -631,6 +635,9 @@
       setStatus(msgs.cameraOff, '');
       translateUI();
     }
+
+    // Expose as translatePage so the side panel language picker can trigger it
+    function translatePage() { initUserTranslations(); }
 
     initUserTranslations();
 
