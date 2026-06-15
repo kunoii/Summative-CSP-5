@@ -68,6 +68,68 @@ window.updatePillCountInFirestore = async function (caretakerUsername, medId, ne
     } catch (e) { console.error('Firestore pill update error:', e); }
 };  // <-- close the function HERE
 
+// ── Register caretaker profile in Firestore ───────────────────────────────────
+window.registerCaretaker = async function (username, encryptedPhone) {
+    try {
+        const data = { username, role: 'caretaker' };
+        if (encryptedPhone) data.phone = encryptedPhone;
+        await db.collection('caretakers').doc(username).set(data, { merge: true });
+    } catch (e) { console.error('registerCaretaker error:', e); }
+};
+
+// ── Get caretaker's encrypted phone from Firestore ───────────────────────────
+window.getCaretakerPhone = async function (username) {
+    try {
+        const snap = await db.collection('caretakers').doc(username).get();
+        return snap.exists ? (snap.data().phone || '') : '';
+    } catch (e) { console.error('getCaretakerPhone error:', e); return ''; }
+};
+
+// ── Check if a caretaker exists in Firestore ──────────────────────────────────
+window.getCaretaker = async function (username) {
+    try {
+        const snap = await db.collection('caretakers').doc(username).get();
+        return snap.exists ? snap.data() : null;
+    } catch (e) { console.error('getCaretaker error:', e); return null; }
+};
+
+// ── Send a join request (pending) from user to caretaker ─────────────────────
+window.linkUserToCaretaker = async function (caretakerUsername, userUsername) {
+    try {
+        const ref = db.collection('caretakers').doc(caretakerUsername)
+            .collection('users').doc(userUsername);
+        const snap = await ref.get();
+        // Don't overwrite an already-accepted link
+        if (snap.exists && snap.data().status === 'accepted') return;
+        await ref.set({ username: userUsername, status: 'pending', requestedAt: new Date().toISOString() }, { merge: true });
+    } catch (e) { console.error('linkUserToCaretaker error:', e); }
+};
+
+// ── Accept a pending user request ─────────────────────────────────────────────
+window.acceptUserRequest = async function (caretakerUsername, userUsername) {
+    try {
+        await db.collection('caretakers').doc(caretakerUsername)
+            .collection('users').doc(userUsername)
+            .set({ username: userUsername, status: 'accepted', acceptedAt: new Date().toISOString() }, { merge: true });
+    } catch (e) { console.error('acceptUserRequest error:', e); }
+};
+
+// ── Get all users for a caretaker (optionally filter by status) ───────────────
+window.getCaretakerUsers = async function (caretakerUsername) {
+    try {
+        const snap = await db.collection('caretakers').doc(caretakerUsername).collection('users').get();
+        return snap.docs.map(d => d.data());
+    } catch (e) { console.error('getCaretakerUsers error:', e); return []; }
+};
+
+// ── Remove a user from a caretaker in Firestore ───────────────────────────────
+window.removeUserFromCaretaker = async function (caretakerUsername, userUsername) {
+    try {
+        await db.collection('caretakers').doc(caretakerUsername)
+            .collection('users').doc(userUsername).delete();
+    } catch (e) { console.error('removeUserFromCaretaker error:', e); }
+};
+
 // ── Handle foreground notifications ──────────────────────────────────────────
 if (messaging) {
     messaging.onMessage((payload) => {

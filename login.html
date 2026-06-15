@@ -125,73 +125,73 @@
     <!-- User login (no password) -->
     <div class="form-section hidden" id="form-user-login">
       <div class="field">
-        <label class="field-label">Username</label>
+        <label class="field-label" id="lbl-user-username">Username</label>
         <input class="field-input" type="text" id="user-username"
           placeholder="Your username" autocomplete="username" />
       </div>
       <div class="field">
-        <label class="field-label">Caretaker Name</label>
+        <label class="field-label" id="lbl-user-caretaker">Caretaker Name</label>
         <input class="field-input" type="text" id="user-caretaker"
           placeholder="Your caretaker's username (optional)" autocomplete="off" />
-        <p class="field-hint">Enter your caretaker's username, or leave blank if unsure.</p>
+        <p class="field-hint" id="lbl-user-hint">Enter your caretaker's username, or leave blank if unsure.</p>
       </div>
       <label class="keep-signed">
-        <input type="checkbox" id="keep-signed-user" /> Keep me signed in
+        <input type="checkbox" id="keep-signed-user" /><span id="lbl-keep-user"> Keep me signed in</span>
       </label>
       <div class="msg msg-error" id="user-error"></div>
-      <button class="submit-btn" onclick="handleUserLogin()">Continue</button>
+      <button class="submit-btn" id="btn-user-continue" onclick="handleUserLogin()">Continue</button>
     </div>
 
     <!-- Caretaker login (with password) -->
     <div class="form-section hidden" id="form-login">
       <div class="field">
-        <label class="field-label">Username</label>
+        <label class="field-label" id="lbl-login-username">Username</label>
         <input class="field-input" type="text" id="login-identity"
           placeholder="Your username" autocomplete="username" />
       </div>
       <div class="field">
-        <label class="field-label">Password</label>
+        <label class="field-label" id="lbl-login-password">Password</label>
         <input class="field-input" type="password" id="login-password"
           placeholder="••••••••" autocomplete="current-password" />
       </div>
       <label class="keep-signed">
-        <input type="checkbox" id="keep-signed-in" /> Keep me signed in
+        <input type="checkbox" id="keep-signed-in" /><span id="lbl-keep-login"> Keep me signed in</span>
       </label>
       <div class="msg msg-error" id="login-error"></div>
-      <button class="submit-btn" onclick="handleLogin()">Log In</button>
+      <button class="submit-btn" id="btn-login" onclick="handleLogin()">Log In</button>
     </div>
 
     <!-- Caretaker sign up -->
     <div class="form-section hidden" id="form-signup">
       <div class="field">
-        <label class="field-label">Username</label>
+        <label class="field-label" id="lbl-signup-username">Username</label>
         <input class="field-input" type="text" id="signup-username"
           placeholder="Choose a username (letters, numbers, _)" autocomplete="username" />
       </div>
       <div class="field">
-        <label class="field-label">Phone Number</label>
+        <label class="field-label" id="lbl-signup-phone">Phone Number</label>
         <div class="phone-row">
           <select class="field-input phone-country" id="signup-country"></select>
           <input class="field-input phone-number" type="tel" id="signup-phone" inputmode="numeric" autocomplete="tel-national" />
         </div>
       </div>
       <div class="field">
-        <label class="field-label">Password</label>
+        <label class="field-label" id="lbl-signup-password">Password</label>
         <input class="field-input" type="password" id="signup-password"
           placeholder="At least 6 characters" autocomplete="new-password" />
       </div>
       <div class="field">
-        <label class="field-label">Confirm Password</label>
+        <label class="field-label" id="lbl-signup-confirm">Confirm Password</label>
         <input class="field-input" type="password" id="signup-confirm"
           placeholder="Repeat your password" autocomplete="new-password" />
       </div>
       <div class="msg msg-error"   id="signup-error"></div>
       <div class="msg msg-success" id="signup-success"></div>
-      <button class="submit-btn" onclick="handleSignup()">Create Account</button>
+      <button class="submit-btn" id="btn-signup" onclick="handleSignup()">Create Account</button>
     </div>
   </div>
 
-  <a class="back-link" href="home.html">← Back to role selection</a>
+  <a class="back-link" id="back-link" href="home.html">← Back to role selection</a>
 
   <script>
     const params = new URLSearchParams(location.search);
@@ -251,9 +251,10 @@
       const caretakerName = document.getElementById('user-caretaker').value.trim();
       const keep          = document.getElementById('keep-signed-user').checked;
 
-      if (!username)                          { showMsg('user-error', 'Please enter your username.'); return; }
-      if (username.length < 3)                { showMsg('user-error', 'Username must be at least 3 characters.'); return; }
-      if (!/^[a-zA-Z0-9_]+$/.test(username)) { showMsg('user-error', 'Username can only contain letters, numbers, and underscores.'); return; }
+      const T = window.loginT || {};
+      if (!username)                          { showMsg('user-error', T.errUsername      || 'Please enter your username.'); return; }
+      if (username.length < 3)                { showMsg('user-error', T.errUsernameLen   || 'Username must be at least 3 characters.'); return; }
+      if (!/^[a-zA-Z0-9_]+$/.test(username)) { showMsg('user-error', T.errUsernameChars || 'Username can only contain letters, numbers, and underscores.'); return; }
 
       const users = getUsers();
       let user = users.find(u => u.username === username && u.role === 'user');
@@ -262,14 +263,37 @@
         user = { username, role: 'user', caretakerName: caretakerName || '', assigned: false, assignedTo: '' };
         users.push(user);
       } else {
-        // Update caretaker link if they provided one and aren't already assigned
         if (caretakerName && !user.assigned) user.caretakerName = caretakerName;
       }
 
-     saveUsers(users);
-     saveSession({ username: user.username, role: 'user', caretakerName: user.caretakerName || '' }, keep);
+      // Auto-assign to caretaker — check Firestore first, fall back to localStorage
+      if (caretakerName) {
+        let resolvedCaretaker = null;
 
-      // Register FCM token if caretaker name provided
+        if (window.getCaretaker) {
+          // Try to find caretaker in Firestore (works across devices)
+          resolvedCaretaker = await window.getCaretaker(caretakerName) ||
+                              await window.getCaretaker(caretakerName.toLowerCase());
+        }
+
+        if (!resolvedCaretaker) {
+          // Fall back to localStorage (same-device fallback)
+          const localCt = users.find(u => u.username.toLowerCase() === caretakerName.toLowerCase() && u.role === 'caretaker');
+          if (localCt) resolvedCaretaker = { username: localCt.username };
+        }
+
+        if (resolvedCaretaker) {
+          user.caretakerName = resolvedCaretaker.username;
+          // Don't auto-accept — send a pending request; caretaker must accept
+          if (window.linkUserToCaretaker) {
+            await window.linkUserToCaretaker(resolvedCaretaker.username, user.username);
+          }
+        }
+      }
+
+      saveUsers(users);
+      saveSession({ username: user.username, role: 'user', caretakerName: user.caretakerName || '' }, keep);
+
       if (user.caretakerName && window.registerFCMToken) {
         await window.registerFCMToken(user.caretakerName, user.username);
       }
@@ -284,7 +308,8 @@
       const password = document.getElementById('login-password').value;
       const keep     = document.getElementById('keep-signed-in').checked;
 
-      if (!identity || !password) { showMsg('login-error', 'Please fill in all fields.'); return; }
+      const T = window.loginT || {};
+      if (!identity || !password) { showMsg('login-error', T.errFillAll || 'Please fill in all fields.'); return; }
 
       const hash  = await hashPassword(password);
       const users = getUsers();
@@ -293,15 +318,19 @@
       if (!match) {
         const wrongRole = users.find(u => u.username === identity && u.passwordHash === hash);
         if (wrongRole) {
-          showMsg('login-error',
-            `This account is a ${wrongRole.role === 'user' ? 'User' : 'Caretaker'} account. Go back and choose the correct role.`);
+          const rw = wrongRole.role === 'user' ? (T.roleWord || 'User') : (T.roleWord || 'Caretaker');
+          showMsg('login-error', `${rw} ${T.wrongRoleSuffix || 'account — go back and choose the correct role.'}`);
         } else {
-          showMsg('login-error', 'Username or password is incorrect.');
+          showMsg('login-error', T.errWrongCreds || 'Username or password is incorrect.');
         }
         return;
       }
 
       saveSession({ username: match.username, role: match.role, name: match.name || '' }, keep);
+      // Sync phone to Firestore so users on other devices can reach this caretaker
+      if (window.registerCaretaker && match.phone) {
+        window.registerCaretaker(match.username, match.phone);
+      }
       window.location.href = destPage;
     }
 
@@ -314,18 +343,19 @@
       const countrySelect  = document.getElementById('signup-country');
       const phoneInput     = document.getElementById('signup-phone');
 
-      if (!username || !password || !confirm) { showMsg('signup-error', 'Please fill in all fields.'); return; }
-      if (username.length < 3)                { showMsg('signup-error', 'Username must be at least 3 characters.'); return; }
-      if (!/^[a-zA-Z0-9_]+$/.test(username)) { showMsg('signup-error', 'Username can only contain letters, numbers, and underscores.'); return; }
-      if (password.length < 6)               { showMsg('signup-error', 'Password must be at least 6 characters.'); return; }
-      if (password !== confirm)              { showMsg('signup-error', 'Passwords do not match.'); return; }
+      const T = window.loginT || {};
+      if (!username || !password || !confirm) { showMsg('signup-error', T.errFillAll       || 'Please fill in all fields.'); return; }
+      if (username.length < 3)                { showMsg('signup-error', T.errUsernameLen    || 'Username must be at least 3 characters.'); return; }
+      if (!/^[a-zA-Z0-9_]+$/.test(username)) { showMsg('signup-error', T.errUsernameChars  || 'Username can only contain letters, numbers, and underscores.'); return; }
+      if (password.length < 6)               { showMsg('signup-error', T.errPassLen         || 'Password must be at least 6 characters.'); return; }
+      if (password !== confirm)              { showMsg('signup-error', T.errPassMatch        || 'Passwords do not match.'); return; }
       if (!isPhoneValid(countrySelect, phoneInput)) {
-        showMsg('signup-error', 'Please enter a valid phone number.'); return;
+        showMsg('signup-error', T.errPhone || 'Please enter a valid phone number.'); return;
       }
 
       const users = getUsers();
       if (users.find(u => u.username === username && u.role === role)) {
-        showMsg('signup-error', 'This username is already taken.'); return;
+        showMsg('signup-error', T.errUserTaken || 'This username is already taken.'); return;
       }
 
       const country  = getPhoneCountry(countrySelect.value);
@@ -338,7 +368,11 @@
       saveUsers(users);
 
       saveSession({ username, role, phone: encPhone }, false);
-      showMsg('signup-success', 'Account created! Taking you in…');
+
+      // Register caretaker in Firestore so users on other devices can find them
+      if (window.registerCaretaker) await window.registerCaretaker(username, encPhone);
+
+      showMsg('signup-success', (window.loginT && window.loginT.successCreated) || 'Account created! Taking you in…');
       setTimeout(() => { window.location.href = destPage; }, 800);
     }
 
@@ -363,6 +397,75 @@
       const loginHidden = document.getElementById('form-login').classList.contains('hidden');
       loginHidden ? handleSignup() : handleLogin();
     });
+
+    // ── Translate the page ───────────────────────────────────────────────────
+    (function translateLoginPage() {
+      const lang = localStorage.getItem('caretaker_lang') ||
+                   localStorage.getItem('user_lang') || 'en';
+      if (lang === 'en') return;
+
+      function tx(text) {
+        return fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl='
+          + lang + '&dt=t&q=' + encodeURIComponent(text))
+          .then(r => r.json())
+          .then(d => d[0].map(x => x[0]).join(''))
+          .catch(() => text);
+      }
+      function set(id, text) { const el = document.getElementById(id); if (el) el.textContent = text; }
+      function ph(id, text)  { const el = document.getElementById(id); if (el) el.placeholder  = text; }
+
+      const badge = document.getElementById('role-badge');
+      const items = [
+        { id: 'role-badge',          en: badge ? badge.textContent : (isUser ? 'Sign in as User' : 'Sign in as Caretaker') },
+        { id: 'tab-login',           en: 'Log In' },
+        { id: 'tab-signup',          en: 'Sign Up' },
+        { id: 'back-link',           en: 'Back to role selection' },
+        { id: 'lbl-user-username',   en: 'Username' },
+        { id: 'lbl-user-caretaker',  en: 'Caretaker Name' },
+        { id: 'lbl-user-hint',       en: "Enter your caretaker's username, or leave blank if unsure." },
+        { id: 'lbl-keep-user',       en: ' Keep me signed in' },
+        { id: 'btn-user-continue',   en: 'Continue' },
+        { id: 'lbl-login-username',  en: 'Username' },
+        { id: 'lbl-login-password',  en: 'Password' },
+        { id: 'lbl-keep-login',      en: ' Keep me signed in' },
+        { id: 'btn-login',           en: 'Log In' },
+        { id: 'lbl-signup-username', en: 'Username' },
+        { id: 'lbl-signup-phone',    en: 'Phone Number' },
+        { id: 'lbl-signup-password', en: 'Password' },
+        { id: 'lbl-signup-confirm',  en: 'Confirm Password' },
+        { id: 'btn-signup',          en: 'Create Account' },
+      ];
+      const placeholders = [
+        { id: 'user-username',   en: 'Your username' },
+        { id: 'user-caretaker',  en: "Your caretaker's username (optional)" },
+        { id: 'login-identity',  en: 'Your username' },
+        { id: 'signup-username', en: 'Choose a username (letters, numbers, _)' },
+        { id: 'signup-password', en: 'At least 6 characters' },
+        { id: 'signup-confirm',  en: 'Repeat your password' },
+      ];
+      const errors = [
+        'Please enter your username.',
+        'Username must be at least 3 characters.',
+        'Username can only contain letters, numbers, and underscores.',
+        'Please fill in all fields.',
+        'Username or password is incorrect.',
+        'Password must be at least 6 characters.',
+        'Passwords do not match.',
+        'This username is already taken.',
+        'Please enter a valid phone number.',
+        'Account created! Taking you in...',
+      ];
+
+      Promise.all(items.map(i => tx(i.en))).then(res => items.forEach((item, i) => set(item.id, res[i])));
+      Promise.all(placeholders.map(p => tx(p.en))).then(res => placeholders.forEach((p, i) => ph(p.id, res[i])));
+      Promise.all(errors.map(tx)).then(res => {
+        window.loginT = {
+          errUsername: res[0], errUsernameLen: res[1], errUsernameChars: res[2],
+          errFillAll: res[3], errWrongCreds: res[4], errPassLen: res[5],
+          errPassMatch: res[6], errUserTaken: res[7], errPhone: res[8], successCreated: res[9],
+        };
+      });
+    })();
   </script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging-compat.js"></script>

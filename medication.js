@@ -18,10 +18,11 @@ function saveHistory(list) { localStorage.setItem(HISTORY_KEY, JSON.stringify(li
 let active           = loadActive();
 let history          = loadHistory();
 let editingId        = null;
-let editTimeSlots = [];
+let editTimeSlots    = [];
 let editSelectedDays = [];
 let editTimes        = [];
-let editTimesPerDay = 1;
+let editTimesPerDay  = 1;
+let editPillsPerDose = [1]; // array — one entry per dose
 
 // ── DOM refs
 const container    = document.getElementById('med-container');
@@ -103,25 +104,62 @@ function renderTimeSlots() {
   const defaults = defaultTimes(editTimesPerDay);
   while (editTimes.length < editTimesPerDay) editTimes.push(defaults[editTimes.length] || '09:00');
   editTimes = editTimes.slice(0, editTimesPerDay);
+  while (editPillsPerDose.length < editTimesPerDay) editPillsPerDose.push(1);
+  editPillsPerDose = editPillsPerDose.slice(0, editTimesPerDay);
   container.innerHTML = '';
   editTimes.forEach((t, i) => {
     const wrap = document.createElement('div');
     wrap.className = 'time-slot';
+
+    // Time input
+    const label = document.createElement('span');
+    label.className = 'time-slot-label';
+    label.textContent = editTimesPerDay > 1 ? 'Dose ' + (i + 1) : 'Time';
+    const timeInp = document.createElement('input');
+    timeInp.type = 'time';
+    timeInp.className = 'time-input';
+    timeInp.value = t;
+    timeInp.addEventListener('change', e => { editTimes[i] = e.target.value; });
+
+    // Pills per dose picker
+    const pillWrap = document.createElement('div');
+    pillWrap.className = 'dose-pill-picker';
+    const pillMinus = document.createElement('button');
+    pillMinus.type = 'button'; pillMinus.textContent = '−'; pillMinus.className = 'dose-pill-btn';
+    const pillCount = document.createElement('span');
+    pillCount.className = 'dose-pill-count';
+    pillCount.textContent = editPillsPerDose[i];
+    const pillPlus = document.createElement('button');
+    pillPlus.type = 'button'; pillPlus.textContent = '+'; pillPlus.className = 'dose-pill-btn';
+    pillMinus.addEventListener('click', () => {
+      if (editPillsPerDose[i] > 1) { editPillsPerDose[i]--; pillCount.textContent = editPillsPerDose[i]; }
+    });
+    pillPlus.addEventListener('click', () => {
+      if (editPillsPerDose[i] < 20) { editPillsPerDose[i]++; pillCount.textContent = editPillsPerDose[i]; }
+    });
+    pillWrap.appendChild(pillMinus);
+    pillWrap.appendChild(pillCount);
+    pillWrap.appendChild(pillPlus);
+
+    // Delete button
     const delBtn = document.createElement('button');
     delBtn.type = 'button';
     delBtn.className = 'time-slot-delete';
     delBtn.textContent = '×';
-    delBtn.style.visibility = editTimesPerDay > 1 ? '' : 'hidden';
+    delBtn.disabled = editTimesPerDay <= 1;
+    delBtn.style.opacity = editTimesPerDay > 1 ? '1' : '0.3';
+    delBtn.style.pointerEvents = editTimesPerDay > 1 ? '' : 'none';
     delBtn.addEventListener('click', () => {
-      const inp = wrap.querySelector('.time-input');
-      editTimes[i] = inp.value || editTimes[i];
+      editTimes[i] = timeInp.value || editTimes[i];
       editTimes.splice(i, 1);
+      editPillsPerDose.splice(i, 1);
       editTimesPerDay--;
-      timesDisplay.textContent = editTimesPerDay;
       renderTimeSlots();
     });
-    wrap.innerHTML = `<span class="time-slot-label">${editTimesPerDay > 1 ? 'Dose ' + (i + 1) : 'Time'}</span><input type="time" class="time-input" value="${t}" />`;
-    wrap.querySelector('input').addEventListener('change', e => { editTimes[i] = e.target.value; });
+
+    wrap.appendChild(label);
+    wrap.appendChild(timeInp);
+    wrap.appendChild(pillWrap);
     wrap.appendChild(delBtn);
     container.appendChild(wrap);
   });
@@ -189,7 +227,10 @@ function runDailyDeduction() {
     const missedDays = getDatesFrom(lastDate);
     let deduct = 0;
     missedDays.forEach(dayName => {
-      if (med.days.includes(dayName)) deduct += med.timesPerDay;
+      if (med.days.includes(dayName)) {
+        const ppd = med.pillsPerDose;
+        deduct += Array.isArray(ppd) ? ppd.reduce((a, b) => a + b, 0) : med.timesPerDay * (ppd || 1);
+      }
     });
 
     if (deduct > 0) {
@@ -390,17 +431,21 @@ function openModal(med) {
     editingId        = med.id;
     modalTitle.textContent = window.medT?.changeMedication || 'Change Medication';
     inputName.value  = med.name;
-    editTimeSlots = [...(med.timeSlots || [])];
+    editTimeSlots    = [...(med.timeSlots || [])];
     editSelectedDays = [...med.days];
     editTimes        = med.times ? [...med.times] : defaultTimes(med.timesPerDay);
+    editPillsPerDose = Array.isArray(med.pillsPerDose)
+      ? [...med.pillsPerDose]
+      : Array(med.timesPerDay || 1).fill(med.pillsPerDose || 1);
     pillsInput.value = typeof med.pillCount === 'number' ? med.pillCount : '';
   } else {
     editingId        = null;
     modalTitle.textContent = window.medT?.addMedication || 'Add Medication';
     inputName.value  = '';
-    editTimeSlots = [];
+    editTimeSlots    = [];
     editSelectedDays = [];
     editTimes        = defaultTimes(1);
+    editPillsPerDose = [1];
     pillsInput.value = '';
   }
 
@@ -461,9 +506,14 @@ modalSave.addEventListener('click', () => {
   changes.push(`Time slots: ${(old.timeSlots||[]).join(', ')} → ${editTimeSlots.join(', ')}`);
     // pill count changes are NOT tracked in history
 
+    const oldPPD = JSON.stringify(old.pillsPerDose || []);
+    const newPPD = JSON.stringify(editPillsPerDose);
+    if (oldPPD !== newPPD)
+      changes.push(`Pills per dose changed`);
+
     if (changes.length === 0) {
-      // Only pill count may have changed — update silently
-      active[activeIndex].pillCount = editPillCount;
+      active[activeIndex].pillCount     = editPillCount;
+      active[activeIndex].pillsPerDose  = [...editPillsPerDose];
       saveActive(active);
       renderCards();
       modalOverlay.classList.remove('show');
@@ -471,7 +521,7 @@ modalSave.addEventListener('click', () => {
       return;
     }
 
-    active[activeIndex] = { ...old, name, days: editSelectedDays, timesPerDay: editTimesPerDay, times: [...editTimes], pillCount: editPillCount, assignedTo };
+    active[activeIndex] = { ...old, name, days: editSelectedDays, timesPerDay: editTimesPerDay, times: [...editTimes], pillCount: editPillCount, pillsPerDose: [...editPillsPerDose], assignedTo };
 
     const changeDate = new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
     const sameDay    = histEntry && histEntry.startDate === changeDate;
@@ -504,7 +554,7 @@ modalSave.addEventListener('click', () => {
     const startDate = today.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
     const startDateISO = today.toISOString().split('T')[0];
     const id = Date.now();
-    const med = { id, name, days: editSelectedDays, timesPerDay: editTimesPerDay, times: [...editTimes], pillCount: editPillCount, assignedTo, startDate, startDateISO, endDate: null, changeLog: [] };
+    const med = { id, name, days: editSelectedDays, timesPerDay: editTimesPerDay, times: [...editTimes], pillCount: editPillCount, pillsPerDose: [...editPillsPerDose], assignedTo, startDate, startDateISO, endDate: null, changeLog: [] };
 
     active.push(med);
     // history entry has no pillCount
@@ -527,11 +577,12 @@ function setupMic(btnId, targetInput) {
   recognition.lang = 'en-US';
   recognition.interimResults = false;
   let listening = false;
+  const micImg = '<img src="micIcon.png" alt="mic" class="mic-icon" />';
   btn.addEventListener('click', () => { listening ? recognition.stop() : recognition.start(); });
-  recognition.addEventListener('start',  () => { listening=true;  btn.classList.add('listening');    btn.textContent='⏹'; });
+  recognition.addEventListener('start',  () => { listening=true;  btn.classList.add('listening');    btn.innerHTML='⏹'; });
   recognition.addEventListener('result', e  => { targetInput.value = e.results[0][0].transcript; });
-  recognition.addEventListener('end',    () => { listening=false; btn.classList.remove('listening'); btn.textContent='mic'; });
-  recognition.addEventListener('error',  () => { listening=false; btn.classList.remove('listening'); btn.textContent='mic'; });
+  recognition.addEventListener('end',    () => { listening=false; btn.classList.remove('listening'); btn.innerHTML=micImg; });
+  recognition.addEventListener('error',  () => { listening=false; btn.classList.remove('listening'); btn.innerHTML=micImg; });
 }
 
 // ── Print history
@@ -606,11 +657,11 @@ function renderHistoryList() {
       <button class="history-delete-btn" data-idx="${idx}" aria-label="Delete">×</button>
       <div class="history-entry-name">${med.name}</div>
       <div class="history-entry-meta">
-        <span>${med.days.join(', ')}</span>
-        <span>${med.timesPerDay}x / day</span>
+        <span>${med.days.map(d => (window.medT?.dayNames?.[d] || d)).join(', ')}</span>
+        <span>${med.timesPerDay}x ${window.medT?.perDay || '/ day'}</span>
       </div>
       <div class="history-entry-dates">
-        ${med.startDate} — ${med.endDate || 'Present'}
+        ${med.startDate} — ${med.endDate || (window.medT?.present || 'Present')}
       </div>
     `;
     entry.querySelector('.history-delete-btn').addEventListener('click', () => {

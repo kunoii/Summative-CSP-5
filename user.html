@@ -223,8 +223,8 @@
   <div class="topbar">
     <h1>Object Scanner</h1>
     <div style="margin-left:auto;display:flex;gap:8px;">
-      <a id="topbar-msg-btn"  style="width:38px;height:38px;display:flex;align-items:center;justify-content:center;font-size:18px;background:rgba(15,31,74,0.08);border:1.5px solid var(--border);border-radius:10px;text-decoration:none;transition:background 0.15s;" title="Message caretaker">💬</a>
-      <a id="topbar-call-btn" style="width:38px;height:38px;display:flex;align-items:center;justify-content:center;font-size:18px;background:rgba(15,31,74,0.08);border:1.5px solid var(--border);border-radius:10px;text-decoration:none;transition:background 0.15s;" title="Call caretaker">📞</a>
+      <button id="topbar-msg-btn"  type="button" style="width:38px;height:38px;display:flex;align-items:center;justify-content:center;font-size:18px;background:rgba(15,31,74,0.08);border:1.5px solid var(--border);border-radius:10px;cursor:pointer;transition:background 0.15s;opacity:0.35;" title="Message caretaker" aria-label="Message caretaker">💬</button>
+      <button id="topbar-call-btn" type="button" style="width:38px;height:38px;display:flex;align-items:center;justify-content:center;font-size:18px;background:rgba(15,31,74,0.08);border:1.5px solid var(--border);border-radius:10px;cursor:pointer;transition:background 0.15s;opacity:0.35;" title="Call caretaker"    aria-label="Call caretaker">📞</button>
     </div>
   </div>
 
@@ -272,10 +272,10 @@
   <div id="med-reminder">
     <div id="med-reminder-inner">
       <div>
-        <div id="med-reminder-label">💊 Time to take your meds</div>
+        <div id="med-reminder-label">Time to take your medication</div>
         <div id="med-reminder-names"></div>
       </div>
-      <button id="med-taken-btn">Meds Taken ✓</button>
+      <button id="med-taken-btn">Taken ✓</button>
     </div>
   </div>
 
@@ -610,8 +610,8 @@
         { el: startBtn,                                         text: 'Start' },
         { el: document.querySelector('#cam-start p'),           text: 'Allow camera access to start scanning' },
         { el: speakAgainBtn,                                    text: '🔊 Speak again' },
-        { el: document.getElementById('med-reminder-label'),    text: '💊 Time to take your meds' },
-        { el: document.getElementById('med-taken-btn'),         text: 'Meds Taken ✓' },
+        { el: document.getElementById('med-reminder-label'),    text: 'Time to take your medication' },
+        { el: document.getElementById('med-taken-btn'),         text: 'Taken ✓' },
         { el: document.getElementById('danger-title'),          text: 'Warning' },
         { el: document.getElementById('danger-instr'),          text: 'Please contact your caretaker before touching this object.' },
         { el: document.getElementById('danger-msg-btn'),        text: '💬 Message Caretaker' },
@@ -664,20 +664,10 @@
       textEl.textContent  = tText;
       instrEl.textContent = tInstr;
 
-      // Wire up contact buttons from stored caretaker data
-      try {
-        const session  = JSON.parse(localStorage.getItem('auth_session') || sessionStorage.getItem('auth_session') || 'null');
-        const allUsers = JSON.parse(localStorage.getItem('auth_users') || '[]');
-        const me       = session ? allUsers.find(u => u.username === session.username) : null;
-        const ctUser   = (me && (me.assignedTo || me.caretakerName || (session && session.caretakerName)));
-        const caretaker = ctUser ? allUsers.find(u => u.username === ctUser) : null;
-        let phone = '';
-        if (caretaker && caretaker.phone) {
-          phone = caretaker.phone.includes(':') ? (await decryptPhone(caretaker.phone) || '') : caretaker.phone;
-        }
-        if (phone) { msgBtn.href = `sms:${phone}`; callBtn.href = `tel:${phone}`; }
-        else { msgBtn.removeAttribute('href'); callBtn.removeAttribute('href'); }
-      } catch {}
+      // Wire up contact buttons using phone from Firestore
+      const phone = await resolveCaretakerPhone();
+      if (phone) { msgBtn.href = `sms:${phone}`; callBtn.href = `tel:${phone}`; }
+      else { msgBtn.removeAttribute('href'); callBtn.removeAttribute('href'); }
 
       popup.classList.add('show');
       speak('Warning! ' + tText);
@@ -686,36 +676,44 @@
     document.getElementById('danger-msg-btn').addEventListener('click',  () => document.getElementById('danger-popup').classList.remove('show'));
     document.getElementById('danger-call-btn').addEventListener('click', () => document.getElementById('danger-popup').classList.remove('show'));
 
-    // ── Topbar contact buttons ────────────────────────────────────────────────
-    (async function wireTopbarContact() {
+    // ── Shared helper: get caretaker phone (Firestore first, localStorage fallback) ──
+    async function resolveCaretakerPhone() {
+      try {
+        const session = JSON.parse(localStorage.getItem('auth_session') || sessionStorage.getItem('auth_session') || 'null');
+        const ctName  = session && (session.caretakerName);
+        if (!ctName) return '';
+
+        // Try Firestore first (works across devices)
+        if (window.getCaretakerPhone) {
+          const encPhone = await window.getCaretakerPhone(ctName);
+          if (encPhone) return encPhone.includes(':') ? (await decryptPhone(encPhone) || '') : encPhone;
+        }
+
+        // Fall back to localStorage (same-device)
+        const allUsers  = JSON.parse(localStorage.getItem('auth_users') || '[]');
+        const caretaker = allUsers.find(u => u.username === ctName);
+        if (caretaker && caretaker.phone) {
+          return caretaker.phone.includes(':') ? (await decryptPhone(caretaker.phone) || '') : caretaker.phone;
+        }
+      } catch {}
+      return '';
+    }
+
+    // ── Topbar contact buttons — called after Firebase loads ─────────────────
+    window.wireTopbarContact = async function () {
       const msgBtn  = document.getElementById('topbar-msg-btn');
       const callBtn = document.getElementById('topbar-call-btn');
-      try {
-        const session   = JSON.parse(localStorage.getItem('auth_session') || sessionStorage.getItem('auth_session') || 'null');
-        const allUsers  = JSON.parse(localStorage.getItem('auth_users') || '[]');
-        const me        = session ? allUsers.find(u => u.username === session.username) : null;
-        const ctName    = me && (me.assignedTo || me.caretakerName || (session && session.caretakerName));
-        const caretaker = ctName ? allUsers.find(u => u.username === ctName) : null;
-        let phone = '';
-        if (caretaker && caretaker.phone) {
-          phone = caretaker.phone.includes(':') ? (await decryptPhone(caretaker.phone) || '') : caretaker.phone;
-        }
-        if (phone) {
-          msgBtn.href  = `sms:${phone}`;
-          callBtn.href = `tel:${phone}`;
-        } else {
-          msgBtn.style.opacity  = '0.35';
-          callBtn.style.opacity = '0.35';
-          msgBtn.style.pointerEvents  = 'none';
-          callBtn.style.pointerEvents = 'none';
-        }
-      } catch {
+      const phone   = await resolveCaretakerPhone();
+      if (phone) {
+        msgBtn.onclick  = () => { window.location.href = `sms:${phone}`; };
+        callBtn.onclick = () => { window.location.href = `tel:${phone}`; };
+        msgBtn.style.opacity  = '1';
+        callBtn.style.opacity = '1';
+      } else {
         msgBtn.style.opacity  = '0.35';
         callBtn.style.opacity = '0.35';
-        msgBtn.style.pointerEvents  = 'none';
-        callBtn.style.pointerEvents = 'none';
       }
-    })();
+    };
   </script>
 
   <script>
@@ -793,7 +791,17 @@
       if (!banner || !namesEl) return;
       if (due.length === 0) { banner.classList.remove('show'); return; }
       banner.classList.add('show');
-      namesEl.textContent = [...new Set(due.map(d => d.med.name))].join(' · ');
+      namesEl.innerHTML = '';
+      due.forEach(({ med, time }) => {
+        const ppd = med.pillsPerDose;
+        const timeIdx = Array.isArray(med.times) ? med.times.indexOf(time) : -1;
+        const count = Array.isArray(ppd) ? (timeIdx >= 0 ? (ppd[timeIdx] || 1) : 1) : (ppd || 1);
+        const pillWord = count === 1 ? 'pill' : 'pills';
+        const line = document.createElement('div');
+        line.textContent = `${med.name} — ${count} ${pillWord}`;
+        line.style.cssText = 'font-size:15px;font-weight:600;color:#fff;line-height:1.5;text-transform:capitalize;';
+        namesEl.appendChild(line);
+      });
     }
 
     document.getElementById('med-taken-btn').addEventListener('click', () => {
@@ -806,20 +814,40 @@
       const deductedIds = new Set();
       const lowMeds = [];
 
-      pendingDoses.forEach(({ med, key }) => {
+      pendingDoses.forEach(({ med, time, key }) => {
         taken[key] = today;
-        if (!deductedIds.has(med.id)) {
+        const idx = meds.findIndex(m => m.id === med.id);
+        if (idx !== -1 && typeof meds[idx].pillCount === 'number') {
+          const m = meds[idx];
+          const ppd = m.pillsPerDose;
+          // Find which dose slot this time belongs to so we use the right pill count
+          const timeIdx = Array.isArray(m.times) ? m.times.indexOf(time) : -1;
+          const pillsThisDose = Array.isArray(ppd)
+            ? (timeIdx >= 0 ? (ppd[timeIdx] || 1) : 1)
+            : (ppd || 1);
+          m.pillCount = Math.max(0, m.pillCount - pillsThisDose);
+          if (m.pillCount <= LOW_STOCK && !deductedIds.has(med.id)) lowMeds.push(m);
           deductedIds.add(med.id);
-          const idx = meds.findIndex(m => m.id === med.id);
-          if (idx !== -1 && typeof meds[idx].pillCount === 'number') {
-            meds[idx].pillCount = Math.max(0, meds[idx].pillCount - 1);
-            if (meds[idx].pillCount <= LOW_STOCK) lowMeds.push(meds[idx]);
-          }
         }
       });
 
       localStorage.setItem('medications_active', JSON.stringify(meds));
       localStorage.setItem('med_doses_taken', JSON.stringify(taken));
+
+      // Sync updated pill counts to Firestore so the caretaker page reflects the change
+      if (window.updatePillCountInFirestore) {
+        let ctSession;
+        try { ctSession = JSON.parse(localStorage.getItem('auth_session') || sessionStorage.getItem('auth_session') || 'null'); } catch { ctSession = null; }
+        const caretakerName = ctSession && ctSession.caretakerName;
+        if (caretakerName) {
+          deductedIds.forEach(medId => {
+            const updated = meds.find(m => m.id === medId);
+            if (updated && typeof updated.pillCount === 'number') {
+              window.updatePillCountInFirestore(caretakerName, medId, updated.pillCount);
+            }
+          });
+        }
+      }
 
       if (lowMeds.length && Notification.permission === 'granted') {
         let notified;
@@ -839,8 +867,8 @@
       updateReminderUI([]);
     });
 
- checkMedReminders();
-    setInterval(checkMedReminders, 60000);
+  checkMedReminders();
+    setInterval(checkMedReminders, 30000);
     window.checkMedReminders = checkMedReminders;
 
   })();
@@ -862,61 +890,71 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging-compat.js"></script>
 <script src="firebase.js"></script>
   <script>
-  function loadMedsWhenReady() {
-    if (!window.loadMedsFromFirestore) {
-      setTimeout(loadMedsWhenReady, 500);
+  // Wire contact buttons now that Firebase is loaded
+  if (window.wireTopbarContact) window.wireTopbarContact();
+
+  // Real-time listener — fires immediately when page loads AND whenever meds change
+  function startMedListener() {
+    if (!window.listenToMeds) {
+      setTimeout(startMedListener, 500);
       return;
     }
     const session = JSON.parse(localStorage.getItem('auth_session') || sessionStorage.getItem('auth_session') || 'null');
     if (session && session.caretakerName) {
-      window.loadMedsFromFirestore(session.caretakerName).then(remoteMeds => {
-        if (remoteMeds.length) {
+      window.listenToMeds(session.caretakerName, remoteMeds => {
+        if (remoteMeds && remoteMeds.length) {
           localStorage.setItem('medications_active', JSON.stringify(remoteMeds));
-          if (window.checkMedReminders) window.checkMedReminders();
         }
-      }).catch(e => console.error(e));
+        // Always re-check after any update, even if list is empty
+        if (window.checkMedReminders) window.checkMedReminders();
+      });
     }
   }
-  loadMedsWhenReady();
+  startMedListener();
 
- async function enableNotifs() {
+  async function enableNotifs() {
+    document.getElementById('notif-banner').style.display = 'none';
     try {
       const permission = await Notification.requestPermission();
       if (permission === 'granted') {
-        document.getElementById('notif-banner').style.display = 'none';
         const session = JSON.parse(localStorage.getItem('auth_session') || sessionStorage.getItem('auth_session') || 'null');
-        if (session && session.caretakerName) {
-          await navigator.serviceWorker.ready;
-          if (window.registerFCMToken) {
-            await window.registerFCMToken(session.caretakerName, session.username);
-            console.log('FCM token registered!');
-          }
+        if (session && session.caretakerName && window.registerFCMToken) {
+          const swReady = await Promise.race([
+            navigator.serviceWorker.ready,
+            new Promise(r => setTimeout(r, 5000)),
+          ]);
+          await window.registerFCMToken(session.caretakerName, session.username);
         }
       }
     } catch (e) {
       console.error('enableNotifs error:', e);
-      document.getElementById('notif-banner').style.display = 'none';
     }
   }
+  </script>
+
+  <!-- Backdrop is a separate layer so iOS Safari touch events reach the buttons -->
+  <div id="notif-banner" style="display:none; position:fixed; inset:0; z-index:9999; align-items:center; justify-content:center; padding:20px;">
+    <div style="position:absolute; inset:0; background:rgba(0,0,0,0.6); backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px);"></div>
+    <div style="position:relative; background:var(--navy); border-radius:20px; padding:28px 24px; max-width:340px; width:100%; text-align:center; display:flex; flex-direction:column; gap:16px;">
+      <div style="font-size:40px;">💊</div>
+      <div style="font-size:18px; font-weight:700; color:var(--accent);">Enable Medication Reminders</div>
+      <div style="font-size:14px; color:rgba(255,255,255,0.7);">Get notified when it's time to take your medication</div>
+      <button id="notif-enable-btn"
+        style="padding:14px; background:var(--accent); color:var(--navy); border:none; border-radius:12px; font-size:16px; font-weight:700; cursor:pointer; font-family:var(--font); touch-action:manipulation;">Enable Notifications</button>
+      <button id="notif-skip-btn"
+        style="padding:10px; background:transparent; color:rgba(255,255,255,0.5); border:none; font-size:14px; cursor:pointer; font-family:var(--font); touch-action:manipulation;">Not now</button>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('notif-enable-btn').addEventListener('click', enableNotifs);
+    document.getElementById('notif-skip-btn').addEventListener('click', () => {
+      document.getElementById('notif-banner').style.display = 'none';
+    });
     if (Notification.permission !== 'granted') {
-      document.getElementById('notif-banner').style.display = 'block';
+      document.getElementById('notif-banner').style.display = 'flex';
     }
   </script>
-<div id="notif-banner"
-  style="display:block; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.6); backdrop-filter:blur(4px); display:flex; align-items:center; justify-content:center; padding:20px;">
-  <div
-    style="background:var(--navy); border-radius:20px; padding:28px 24px; max-width:340px; width:100%; text-align:center; display:flex; flex-direction:column; gap:16px;">
-    <div style="font-size:40px;">💊</div>
-    <div style="font-size:18px; font-weight:700; color:var(--accent);">Enable Medication Reminders</div>
-    <div style="font-size:14px; color:rgba(255,255,255,0.7);">Get notified when it's time to take your medication</div>
-    <button onclick="enableNotifs()"
-      style="padding:14px; background:var(--accent); color:var(--navy); border:none; border-radius:12px; font-size:16px; font-weight:700; cursor:pointer; font-family:var(--font);">Enable
-      Notifications</button>
-    <button onclick="document.getElementById('notif-banner').style.display='none'"
-      style="padding:10px; background:transparent; color:rgba(255,255,255,0.5); border:none; font-size:14px; cursor:pointer; font-family:var(--font);">Not
-      now</button>
-  </div>
-</div>
 </body>
 
 </html>

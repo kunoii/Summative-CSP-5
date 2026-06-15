@@ -65,6 +65,28 @@ body {
   letter-spacing: 0.05em;
 }
 
+.ud-card-pending { border-color: #fbbf24; background: #fffbeb; }
+
+.ud-accept-btn {
+  flex: 1; padding: 10px;
+  font-size: 14px; font-weight: 700;
+  background: var(--navy); color: var(--accent);
+  border: none; border-radius: 9px;
+  cursor: pointer; font-family: var(--font);
+  transition: background 0.15s;
+}
+.ud-accept-btn:hover { background: var(--navy-mid, #1e3060); }
+
+.ud-decline-btn {
+  flex: 1; padding: 10px;
+  font-size: 14px; font-weight: 700;
+  background: #fef2f2; color: #b91c1c;
+  border: 1.5px solid #fca5a5; border-radius: 9px;
+  cursor: pointer; font-family: var(--font);
+  transition: background 0.15s;
+}
+.ud-decline-btn:hover { background: #fee2e2; }
+
 /* ── Confirm remove modal ── */
 .confirm-overlay {
   position: fixed; inset: 0;

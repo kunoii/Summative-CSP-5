@@ -133,7 +133,9 @@
         <label>Medication name</label>
         <div class="input-row">
           <input id="input-name" type="text" placeholder='e.g. "Ibuprofen"' />
-          <button class="mic-btn" id="mic-name" type="button">mic</button>
+          <button class="mic-btn" id="mic-name" type="button" aria-label="Speak medication name">
+            <img src="micIcon.png" alt="mic" class="mic-icon" />
+          </button>
         </div>
       </div>
 
@@ -157,10 +159,10 @@
     <div class="field">
       <label>Time slots</label>
       <div class="time-slots">
-        <div class="period-slot" data-slot="Morning">🌅 Morning</div>
-        <div class="period-slot" data-slot="Afternoon">☀️ Afternoon</div>
-        <div class="period-slot" data-slot="Evening">🌆 Evening</div>
-        <div class="period-slot" data-slot="Night">🌙 Night</div>
+        <button class="period-slot" type="button" data-slot="Morning">Morning</button>
+        <button class="period-slot" type="button" data-slot="Afternoon">Afternoon</button>
+        <button class="period-slot" type="button" data-slot="Evening">Evening</button>
+        <button class="period-slot" type="button" data-slot="Night">Night</button>
       </div>
     </div>
 
@@ -230,6 +232,7 @@
       { sel: '#modal-title',          en: 'Add Medication' },
       { sel: '#history-overlay h2',   en: 'Medication History' },
       { sel: '#history-close',        en: '×' },
+      { sel: '#print-btn',            en: 'Print History' },
     ];
 
     // Translate all static elements in parallel
@@ -246,7 +249,10 @@
     detailLabelEls.forEach((el, i) => { if (detailTexts[i]) el.textContent = detailResults[i]; });
 
     // Populate global strings used by medication.js for dynamic content
-    const [addMed, changeMed, noMeds, medHistory, noHistory, pill, pills, left, remaining, lowStock, wellStocked] = await Promise.all([
+    const DAY_NAMES_EN = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+
+    const [addMed, changeMed, noMeds, medHistory, noHistory, pill, pills, left, remaining, lowStock, wellStocked, present, perDay, medHistoryBtn, printHistory,
+           ...translatedDays] = await Promise.all([
       translateText('Add Medication', lang),
       translateText('Change Medication', lang),
       translateText('No medications yet. Tap Add Medication to get started.', lang),
@@ -258,8 +264,17 @@
       translateText('remaining', lang),
       translateText('Low stock', lang),
       translateText('All medications are well stocked.', lang),
+      translateText('Present', lang),
+      translateText('/ day', lang),
+      translateText('Medication History', lang),
+      translateText('Print History', lang),
+      ...DAY_NAMES_EN.map(d => translateText(d, lang)),
     ]);
-    window.medT = { addMedication: addMed, changeMedication: changeMed, noMeds, medHistory, noHistory, pill, pills, left, remaining, lowStock, wellStocked };
+
+    const dayNames = {};
+    DAY_NAMES_EN.forEach((d, i) => { dayNames[d] = translatedDays[i] || d; });
+
+    window.medT = { addMedication: addMed, changeMedication: changeMed, noMeds, medHistory, noHistory, pill, pills, left, remaining, lowStock, wellStocked, present, perDay, medHistoryBtn, printHistory, dayNames };
 
     // Re-render cards so the Add Medication button and empty-state text use translated strings
     if (typeof renderCards === 'function') renderCards();

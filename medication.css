@@ -520,14 +520,34 @@ header h1 { font-size: 22px; font-weight: 700; color: var(--yellow); letter-spac
   border-radius: 9px; outline: none; transition: border-color 0.15s;
 }
 .time-input:focus { border-color: var(--navy); }
-.time-slot-delete {
-  background: none; border: none; cursor: pointer;
-  color: var(--muted); font-size: 18px; line-height: 1;
-  padding: 4px 6px; border-radius: 6px;
-  transition: color 0.15s, background 0.15s;
-  flex-shrink: 0;
+.dose-pill-picker {
+  display: flex; align-items: center; gap: 4px; flex-shrink: 0;
 }
-.time-slot-delete:hover { color: #b91c1c; background: #fef2f2; }
+.dose-pill-btn {
+  width: 26px; height: 26px;
+  background: var(--bg); border: 1.5px solid var(--border);
+  border-radius: 6px; font-size: 16px; line-height: 1;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  font-family: var(--font); color: var(--navy);
+  transition: background 0.15s;
+}
+.dose-pill-btn:hover { background: var(--border); }
+.dose-pill-count {
+  font-size: 13px; font-weight: 700; color: var(--navy);
+  min-width: 22px; text-align: center;
+}
+
+.time-slot-delete {
+  background: #fef2f2; border: 1.5px solid #fca5a5; cursor: pointer;
+  color: #b91c1c; font-size: 17px; line-height: 1;
+  width: 34px; height: 34px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; transition: background 0.15s;
+  font-family: var(--font);
+  -webkit-tap-highlight-color: transparent;
+}
+.time-slot-delete:hover { background: #fee2e2; }
+.time-slot-delete:active { background: #fca5a5; }
 
 /* ── Low-stock banner ── */
 #low-stock-banner {
@@ -549,23 +569,36 @@ header h1 { font-size: 22px; font-weight: 700; color: var(--yellow); letter-spac
   flex-wrap: wrap;
 }
 
-.time-slot {
+.period-slot {
   flex: 1;
-  min-width: 100px;
+  min-width: 80px;
   padding: 12px 8px;
   text-align: center;
   font-size: 14px;
   font-weight: 600;
-  background: #f8fafc;
+  background: var(--bg);
+  color: var(--text);
   border: 1.5px solid var(--border);
   border-radius: 10px;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
   font-family: var(--font);
+  -webkit-tap-highlight-color: transparent;
 }
 
-.time-slot.selected {
+.period-slot:hover {
+  background: var(--navy-mid, #1e3060);
+  color: #fff;
+  border-color: var(--navy-mid, #1e3060);
+}
+
+.period-slot.selected {
   background: var(--navy);
   color: var(--yellow);
   border-color: var(--navy);
+}
+
+.period-slot.selected:hover {
+  background: var(--navy);
+  color: var(--yellow);
 }

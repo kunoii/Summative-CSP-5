@@ -51,21 +51,46 @@ window.addEventListener('hashchange', () => {
 });
 
 // ── User dashboard ────────────────────────────────────────────────────────────
-function renderUserDashboard() {
+async function renderUserDashboard() {
   const udContainer = document.getElementById('user-dashboard-container');
   const session = getCaretakerSession();
-  const myUsername = (session ? session.username : '').toLowerCase();
-  const allUsers = getAllAppUsers();
 
-  // Users who listed me as caretaker OR are already added to me
-  const visible = allUsers.filter(u =>
-    (u.caretakerName || '').toLowerCase() === myUsername ||
-    u.assignedTo === session.username
-  );
+  udContainer.innerHTML = `<div style="padding:32px;text-align:center;color:var(--muted);font-size:15px;">Loading users…</div>`;
+
+  // Fetch all users from Firestore
+  let firestoreUsers = [];
+  if (window.getCaretakerUsers) {
+    firestoreUsers = await window.getCaretakerUsers(session.username);
+  }
+
+  let pending  = firestoreUsers.filter(u => u.status === 'pending');
+  let accepted = firestoreUsers.filter(u => u.status === 'accepted');
+
+  // Sync accepted users into localStorage so object/med assignment works locally
+  if (accepted.length) {
+    const allUsers = getAllAppUsers();
+    accepted.forEach(fu => {
+      const existing = allUsers.find(u => u.username === fu.username);
+      if (existing) {
+        existing.assigned = true; existing.assignedTo = session.username; existing.caretakerName = session.username;
+      } else {
+        allUsers.push({ username: fu.username, role: 'user', assigned: true, assignedTo: session.username, caretakerName: session.username });
+      }
+    });
+    saveAllAppUsers(allUsers);
+  }
+
+  // Fall back to localStorage if Firestore returned nothing (e.g. re-login timing, network)
+  if (pending.length === 0 && accepted.length === 0) {
+    const localUsers = getMyAddedUsers();
+    if (localUsers.length) {
+      accepted = localUsers.map(u => ({ username: u.username, status: 'accepted' }));
+    }
+  }
 
   udContainer.innerHTML = '';
 
-  if (visible.length === 0) {
+  if (pending.length === 0 && accepted.length === 0) {
     udContainer.innerHTML = `
       <div style="padding:48px 24px;text-align:center;">
         <p style="font-size:17px;color:var(--muted);margin-bottom:8px;">${window.ctTranslations?.noUsers || 'No users yet.'}</p>
@@ -74,45 +99,99 @@ function renderUserDashboard() {
     return;
   }
 
-  const grid = document.createElement('div');
-  grid.className = 'ud-grid';
-
-  visible.forEach(u => {
-    const card = document.createElement('div');
-    card.className = 'ud-card';
-    const isAdded = u.assignedTo === session.username;
-    const displayName = u.name || u.username;
-
-    card.innerHTML = `
-      <div class="ud-card-top">
-        <div class="ud-user-info">
-          <div class="ud-name">${displayName}</div>
-          <div class="ud-username">@${u.username}</div>
+  // ── Pending requests section
+  if (pending.length > 0) {
+    const section = document.createElement('div');
+    section.style.cssText = 'margin-bottom:24px;';
+    section.innerHTML = `<div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:10px;padding:0 4px;">Requests (${pending.length})</div>`;
+    const grid = document.createElement('div');
+    grid.className = 'ud-grid';
+    pending.forEach(u => {
+      const card = document.createElement('div');
+      card.className = 'ud-card ud-card-pending';
+      card.innerHTML = `
+        <div class="ud-card-top">
+          <div class="ud-user-info">
+            <div class="ud-name">${u.username}</div>
+            <div class="ud-username">@${u.username}</div>
+          </div>
         </div>
-        ${isAdded ? `<button class="ud-remove-x" onclick="confirmRemoveUser('${u.username}')" aria-label="Remove user">✕</button>` : ''}
-      </div>
-      ${isAdded
-        ? `<div class="ud-added-badge">Added</div>`
-        : `<button class="ud-add-btn" onclick="addUser('${u.username}')">Add User</button>`
-      }
-    `;
-    grid.appendChild(card);
-  });
+        <div style="display:flex;gap:8px;margin-top:4px;">
+          <button class="ud-accept-btn" onclick="acceptUser('${u.username}')">Accept</button>
+          <button class="ud-decline-btn" onclick="declineUser('${u.username}')">Decline</button>
+        </div>`;
+      grid.appendChild(card);
+    });
+    section.appendChild(grid);
+    udContainer.appendChild(section);
+  }
 
-  udContainer.appendChild(grid);
+  // ── Accepted users section
+  if (accepted.length > 0) {
+    const section = document.createElement('div');
+    if (pending.length > 0) {
+      section.innerHTML = `<div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:10px;padding:0 4px;">My Users (${accepted.length})</div>`;
+    }
+    const grid = document.createElement('div');
+    grid.className = 'ud-grid';
+    accepted.forEach(u => {
+      const card = document.createElement('div');
+      card.className = 'ud-card';
+      card.innerHTML = `
+        <div class="ud-card-top">
+          <div class="ud-user-info">
+            <div class="ud-name">${u.username}</div>
+            <div class="ud-username">@${u.username}</div>
+          </div>
+          <button class="ud-remove-x" onclick="confirmRemoveUser('${u.username}')" aria-label="Remove user">✕</button>
+        </div>
+        <div class="ud-added-badge">Added</div>`;
+      grid.appendChild(card);
+    });
+    section.appendChild(grid);
+    udContainer.appendChild(section);
+  }
 }
 
 // ── Add / Remove user ─────────────────────────────────────────────────────────
-function addUser(username) {
+async function acceptUser(username) {
+  const session = getCaretakerSession();
+  if (!session) return;
+  if (window.acceptUserRequest) await window.acceptUserRequest(session.username, username);
+  // Also update localStorage so assignment dropdowns work immediately
+  const users = getAllAppUsers();
+  const user = users.find(u => u.username === username);
+  if (user) {
+    user.assigned = true; user.assignedTo = session.username; user.caretakerName = session.username;
+  } else {
+    users.push({ username, role: 'user', assigned: true, assignedTo: session.username, caretakerName: session.username });
+  }
+  saveAllAppUsers(users);
+  renderUserDashboard();
+  populateAssignDropdown(document.getElementById('obj-assign-select'));
+}
+
+async function declineUser(username) {
+  const session = getCaretakerSession();
+  if (!session) return;
+  if (window.removeUserFromCaretaker) await window.removeUserFromCaretaker(session.username, username);
+  renderUserDashboard();
+}
+
+async function addUser(username) {
   const session = getCaretakerSession();
   if (!session) return;
   const users = getAllAppUsers();
   const user = users.find(u => u.username === username);
   if (user) {
-    user.assigned   = true;
-    user.assignedTo = session.username;
-    user.role       = 'user';
+    user.assigned      = true;
+    user.assignedTo    = session.username;
+    user.caretakerName = session.username;
+    user.role          = 'user';
     saveAllAppUsers(users);
+    if (window.linkUserToCaretaker) {
+      await window.linkUserToCaretaker(session.username, username);
+    }
     renderUserDashboard();
     populateAssignDropdown(document.getElementById('obj-assign-select'));
   }
@@ -131,11 +210,20 @@ document.getElementById('confirm-cancel-btn').addEventListener('click', () => {
   confirmPendingUser = null;
 });
 
-document.getElementById('confirm-remove-btn').addEventListener('click', () => {
+document.getElementById('confirm-remove-btn').addEventListener('click', async () => {
   if (confirmPendingUser) {
+    const session = getCaretakerSession();
+
+    // Remove from localStorage
     const users = getAllAppUsers();
     const user = users.find(u => u.username === confirmPendingUser);
-    if (user) { user.assigned = false; user.assignedTo = ''; saveAllAppUsers(users); }
+    if (user) { user.assigned = false; user.assignedTo = ''; user.caretakerName = ''; saveAllAppUsers(users); }
+
+    // Remove from Firestore so they disappear on all devices
+    if (window.removeUserFromCaretaker && session) {
+      await window.removeUserFromCaretaker(session.username, confirmPendingUser);
+    }
+
     renderUserDashboard();
     populateAssignDropdown(document.getElementById('obj-assign-select'));
   }

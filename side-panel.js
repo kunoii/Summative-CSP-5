@@ -414,6 +414,8 @@
     if (typeof translatePage === 'function') translatePage(ct, us);
     else if (typeof initTranslations === 'function') initTranslations();
     else if (typeof translateDashboard === 'function') translateDashboard(ct);
+    // Update tab bar immediately — no reload needed
+    if (typeof window.applyTabTranslations === 'function') window.applyTabTranslations(ct);
   }
 
   panel.querySelector('#sp-ct-lang').addEventListener('change', e => {

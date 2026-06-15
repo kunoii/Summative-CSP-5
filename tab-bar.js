@@ -118,6 +118,10 @@
 
   applyTabTranslations(localStorage.getItem('caretaker_lang') || 'en');
 
+  // Expose globally so side-panel can trigger it immediately on language change
+  window.applyTabTranslations = applyTabTranslations;
+
+  // Also handle changes from other tabs/windows
   window.addEventListener('storage', e => {
     if (e.key === 'caretaker_lang') applyTabTranslations(e.newValue || 'en');
   });
