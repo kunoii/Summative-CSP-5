@@ -1,7 +1,7 @@
 {
     "name": "A-TEN",
     "short_name": "A-TEN",
-    "start_url": "/index.html",
+   "start_url": "/home.html",
     "display": "standalone",
     "background_color": "#03114F",
     "theme_color": "#03114F",
