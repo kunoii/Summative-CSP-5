@@ -154,14 +154,15 @@
         <div id="days-selected-display"></div>
       </div>
 
-      <div class="field">
-        <label>Times per day</label>
-        <div class="times-picker">
-          <button id="times-minus" type="button">−</button>
-          <span id="times-display">1</span>
-          <button id="times-plus" type="button">+</button>
-        </div>
+    <div class="field">
+      <label>Time slots</label>
+      <div class="time-slots">
+        <div class="period-slot" data-slot="Morning">🌅 Morning</div>
+        <div class="period-slot" data-slot="Afternoon">☀️ Afternoon</div>
+        <div class="period-slot" data-slot="Evening">🌆 Evening</div>
+        <div class="period-slot" data-slot="Night">🌙 Night</div>
       </div>
+    </div>
 
       <div class="field">
         <label>Reminder times</label>
@@ -187,6 +188,10 @@
     </div>
   </div>
 
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging-compat.js"></script>
+  <script src="firebase.js"></script>
   <script src="medication.js"></script>
   <script src="tab-bar.js"></script>
   <script src="phone.js"></script>
@@ -225,10 +230,6 @@
       { sel: '#modal-title',          en: 'Add Medication' },
       { sel: '#history-overlay h2',   en: 'Medication History' },
       { sel: '#history-close',        en: '×' },
-    ];
-
-    const labelMap = [
-      { sel: '.field label[for="input-name"], #modal .field:nth-child(3) label', en: 'Medication name' },
     ];
 
     // Translate all static elements in parallel

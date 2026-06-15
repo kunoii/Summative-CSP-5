@@ -775,9 +775,13 @@
         const newDue = due.filter(d => !sessionStorage.getItem('notif_' + d.key));
         if (newDue.length > 0) {
           newDue.forEach(d => sessionStorage.setItem('notif_' + d.key, '1'));
-          if (Notification.permission === 'granted') {
-            const names = [...new Set(newDue.map(d => d.med.name))].join(', ');
-            new Notification('Time to take your medication', { body: names });
+         if (Notification.permission === 'granted') {
+            newDue.forEach(d => {
+              new Notification('💊 Time to take your medication', {
+                body: `${d.med.name} — take ${d.med.timesPerDay > 1 ? '1 pill' : '1 pill'} now`,
+                icon: '/aten_app_icon.png'
+              });
+            });
           }
         }
       }
@@ -835,12 +839,84 @@
       updateReminderUI([]);
     });
 
-    checkMedReminders();
+ checkMedReminders();
     setInterval(checkMedReminders, 60000);
+    window.checkMedReminders = checkMedReminders;
+
   })();
   </script>
 
   <script src="side-panel.js"></script>
+  <script>
+ if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/firebase-messaging-sw.js')
+      .then(reg => {
+        console.log('SW registered:', reg);
+        window._swReady = true;
+      })
+      .catch(err => console.log('SW error:', err));
+  }
+  </script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging-compat.js"></script>
+<script src="firebase.js"></script>
+  <script>
+  function loadMedsWhenReady() {
+    if (!window.loadMedsFromFirestore) {
+      setTimeout(loadMedsWhenReady, 500);
+      return;
+    }
+    const session = JSON.parse(localStorage.getItem('auth_session') || sessionStorage.getItem('auth_session') || 'null');
+    if (session && session.caretakerName) {
+      window.loadMedsFromFirestore(session.caretakerName).then(remoteMeds => {
+        if (remoteMeds.length) {
+          localStorage.setItem('medications_active', JSON.stringify(remoteMeds));
+          if (window.checkMedReminders) window.checkMedReminders();
+        }
+      }).catch(e => console.error(e));
+    }
+  }
+  loadMedsWhenReady();
+
+ async function enableNotifs() {
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission === 'granted') {
+        document.getElementById('notif-banner').style.display = 'none';
+        const session = JSON.parse(localStorage.getItem('auth_session') || sessionStorage.getItem('auth_session') || 'null');
+        if (session && session.caretakerName) {
+          await navigator.serviceWorker.ready;
+          if (window.registerFCMToken) {
+            await window.registerFCMToken(session.caretakerName, session.username);
+            console.log('FCM token registered!');
+          }
+        }
+      }
+    } catch (e) {
+      console.error('enableNotifs error:', e);
+      document.getElementById('notif-banner').style.display = 'none';
+    }
+  }
+    if (Notification.permission !== 'granted') {
+      document.getElementById('notif-banner').style.display = 'block';
+    }
+  </script>
+<div id="notif-banner"
+  style="display:block; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.6); backdrop-filter:blur(4px); display:flex; align-items:center; justify-content:center; padding:20px;">
+  <div
+    style="background:var(--navy); border-radius:20px; padding:28px 24px; max-width:340px; width:100%; text-align:center; display:flex; flex-direction:column; gap:16px;">
+    <div style="font-size:40px;">💊</div>
+    <div style="font-size:18px; font-weight:700; color:var(--accent);">Enable Medication Reminders</div>
+    <div style="font-size:14px; color:rgba(255,255,255,0.7);">Get notified when it's time to take your medication</div>
+    <button onclick="enableNotifs()"
+      style="padding:14px; background:var(--accent); color:var(--navy); border:none; border-radius:12px; font-size:16px; font-weight:700; cursor:pointer; font-family:var(--font);">Enable
+      Notifications</button>
+    <button onclick="document.getElementById('notif-banner').style.display='none'"
+      style="padding:10px; background:transparent; color:rgba(255,255,255,0.5); border:none; font-size:14px; cursor:pointer; font-family:var(--font);">Not
+      now</button>
+  </div>
+</div>
 </body>
 
 </html>

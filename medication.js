@@ -5,16 +5,23 @@ const HISTORY_KEY  = 'medications_history';
 // ── Load / save helpers
 function loadActive()  { try { return JSON.parse(localStorage.getItem(DISPLAY_KEY))  || []; } catch { return []; } }
 function loadHistory() { try { return JSON.parse(localStorage.getItem(HISTORY_KEY)) || []; } catch { return []; } }
-function saveActive(list)  { localStorage.setItem(DISPLAY_KEY,  JSON.stringify(list)); }
+function saveActive(list) {
+  localStorage.setItem(DISPLAY_KEY, JSON.stringify(list));
+  const session = JSON.parse(localStorage.getItem('auth_session') || sessionStorage.getItem('auth_session') || 'null');
+  if (session && session.username) {
+    window.syncMedsToFirestore && window.syncMedsToFirestore(session.username, list);
+  }
+}
 function saveHistory(list) { localStorage.setItem(HISTORY_KEY, JSON.stringify(list)); }
 
 // ── State
 let active           = loadActive();
 let history          = loadHistory();
 let editingId        = null;
-let editTimesPerDay  = 1;
+let editTimeSlots = [];
 let editSelectedDays = [];
 let editTimes        = [];
+let editTimesPerDay = 1;
 
 // ── DOM refs
 const container    = document.getElementById('med-container');
@@ -25,9 +32,7 @@ const modalCancel  = document.getElementById('modal-cancel');
 const modalSave    = document.getElementById('modal-save');
 const modalTitle   = document.getElementById('modal-title');
 const inputName    = document.getElementById('input-name');
-const timesDisplay = document.getElementById('times-display');
-const timesMinus   = document.getElementById('times-minus');
-const timesPlus    = document.getElementById('times-plus');
+const timeSlotEls = document.querySelectorAll('.period-slot');
 const daysToggle   = document.getElementById('days-toggle');
 const daysMenu     = document.getElementById('days-menu');
 const daysDisplay  = document.getElementById('days-selected-display');
@@ -135,14 +140,20 @@ function updateDaysDisplay() {
   });
 }
 
-// ── Times per day +/-
-timesMinus.addEventListener('click', () => {
-  if (editTimesPerDay > 1) { editTimesPerDay--; timesDisplay.textContent = editTimesPerDay; renderTimeSlots(); }
+timeSlotEls.forEach(slot => {
+  slot.addEventListener('click', () => {
+    const s = slot.dataset.slot;
+    if (editTimeSlots.includes(s)) {
+      editTimeSlots = editTimeSlots.filter(x => x !== s);
+      slot.classList.remove('selected');
+    } else {
+      editTimeSlots.push(s);
+      slot.classList.add('selected');
+    }
+    editTimesPerDay = editTimeSlots.length;
+    renderTimeSlots();
+  });
 });
-timesPlus.addEventListener('click', () => {
-  if (editTimesPerDay < 10) { editTimesPerDay++; timesDisplay.textContent = editTimesPerDay; renderTimeSlots(); }
-});
-
 // ── Daily subtraction
 // For each med, store lastDeductDate per med id in localStorage
 // On load, figure out how many scheduled days have passed since lastDeductDate, subtract pills
@@ -379,7 +390,7 @@ function openModal(med) {
     editingId        = med.id;
     modalTitle.textContent = window.medT?.changeMedication || 'Change Medication';
     inputName.value  = med.name;
-    editTimesPerDay  = med.timesPerDay;
+    editTimeSlots = [...(med.timeSlots || [])];
     editSelectedDays = [...med.days];
     editTimes        = med.times ? [...med.times] : defaultTimes(med.timesPerDay);
     pillsInput.value = typeof med.pillCount === 'number' ? med.pillCount : '';
@@ -387,13 +398,15 @@ function openModal(med) {
     editingId        = null;
     modalTitle.textContent = window.medT?.addMedication || 'Add Medication';
     inputName.value  = '';
-    editTimesPerDay  = 1;
+    editTimeSlots = [];
     editSelectedDays = [];
     editTimes        = defaultTimes(1);
     pillsInput.value = '';
   }
 
-  timesDisplay.textContent = editTimesPerDay;
+  timeSlotEls.forEach(s => {
+    editTimeSlots.includes(s.dataset.slot) ? s.classList.add('selected') : s.classList.remove('selected');
+  });
 
   dayOptions.forEach(o => {
     editSelectedDays.includes(o.dataset.day) ? o.classList.add('selected') : o.classList.remove('selected');
@@ -406,12 +419,19 @@ function openModal(med) {
     med ? (med.assignedTo || 'everyone') : 'everyone'
   );
   modalOverlay.classList.add('show');
+ 
   inputName.focus();
 }
 
-modalCancel.addEventListener('click', () => modalOverlay.classList.remove('show'));
+modalCancel.addEventListener('click', () => {
+  modalOverlay.classList.remove('show');
+  document.body.style.overflow = '';
+});
 modalOverlay.addEventListener('click', e => {
-  if (e.target === modalOverlay) modalOverlay.classList.remove('show');
+  if (e.target === modalOverlay) {
+    modalOverlay.classList.remove('show');
+    document.body.style.overflow = '';
+  }
 });
 
 // ── Save (add or edit)
@@ -419,6 +439,7 @@ modalSave.addEventListener('click', () => {
   const name = inputName.value.trim();
   if (!name)                    { inputName.focus(); return; }
   if (!editSelectedDays.length) { alert('Please select at least one day.'); return; }
+  if (!editTimeSlots.length) { alert('Please select at least one time slot.'); return; }
   const editPillCount = Math.max(0, parseInt(pillsInput.value) || 0);
   const timeInputs = document.querySelectorAll('#time-slots-container .time-input');
   editTimes = Array.from(timeInputs).map(inp => inp.value || '09:00');
@@ -436,8 +457,8 @@ modalSave.addEventListener('click', () => {
     if (old.name !== name) changes.push(`Name: "${old.name}" → "${name}"`);
     if ([...old.days].sort().join(',') !== [...editSelectedDays].sort().join(','))
       changes.push(`Days: ${old.days.join(', ')} → ${editSelectedDays.join(', ')}`);
-    if (old.timesPerDay !== editTimesPerDay)
-      changes.push(`Frequency: ${old.timesPerDay}x/day → ${editTimesPerDay}x/day`);
+   if ([...(old.timeSlots||[])].sort().join(',') !== [...editTimeSlots].sort().join(','))
+  changes.push(`Time slots: ${(old.timeSlots||[]).join(', ')} → ${editTimeSlots.join(', ')}`);
     // pill count changes are NOT tracked in history
 
     if (changes.length === 0) {
@@ -446,6 +467,7 @@ modalSave.addEventListener('click', () => {
       saveActive(active);
       renderCards();
       modalOverlay.classList.remove('show');
+      document.body.style.overflow = '';
       return;
     }
 
@@ -457,13 +479,13 @@ modalSave.addEventListener('click', () => {
     if (sameDay) {
       histEntry.name        = name;
       histEntry.days        = editSelectedDays;
-      histEntry.timesPerDay = editTimesPerDay;
+      histEntry.timesPerDay = editTimeSlots.length;
       // pillCount intentionally not written to history
     } else {
       if (histEntry) histEntry.endDate = changeDate;
       history.unshift({
         id: editingId, _histId: Date.now(),
-        name, days: editSelectedDays, timesPerDay: editTimesPerDay,
+        name, days: editSelectedDays, timesPerDay: editTimeSlots.length,
         startDate: changeDate, endDate: null,
         changeLog: [{ date: changeDate, description: changes.join(' | ') }]
         // no pillCount in history
@@ -474,13 +496,14 @@ modalSave.addEventListener('click', () => {
     saveHistory(history);
     renderCards();
     modalOverlay.classList.remove('show');
+    document.body.style.overflow = '';    // ← ADD
 
   } else {
     // ADD
-    const today     = new Date();
-    const startDate = today.toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
+    const today = new Date();
+    const startDate = today.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
     const startDateISO = today.toISOString().split('T')[0];
-    const id  = Date.now();
+    const id = Date.now();
     const med = { id, name, days: editSelectedDays, timesPerDay: editTimesPerDay, times: [...editTimes], pillCount: editPillCount, assignedTo, startDate, startDateISO, endDate: null, changeLog: [] };
 
     active.push(med);
@@ -490,6 +513,7 @@ modalSave.addEventListener('click', () => {
     saveHistory(history);
     renderCards();
     modalOverlay.classList.remove('show');
+    document.body.style.overflow = '';    // ← ADD
   }
 });
 
@@ -708,8 +732,12 @@ If you cannot read the label clearly, still return your best guess. Always retur
     if (parsed.name)  inputName.value = parsed.name;
 
     if (parsed.timesPerDay && Number.isInteger(parsed.timesPerDay)) {
-      editTimesPerDay = Math.min(10, Math.max(1, parsed.timesPerDay));
-      timesDisplay.textContent = editTimesPerDay;
+      // Map times per day to slots automatically
+      const slotMap = { 1: ['Morning'], 2: ['Morning', 'Night'], 3: ['Morning', 'Afternoon', 'Night'], 4: ['Morning', 'Afternoon', 'Evening', 'Night'] };
+      editTimeSlots = slotMap[Math.min(4, parsed.timesPerDay)] || ['Morning'];
+      timeSlotEls.forEach(s => {
+        editTimeSlots.includes(s.dataset.slot) ? s.classList.add('selected') : s.classList.remove('selected');
+      });
     }
 
     if (parsed.days) {
@@ -768,8 +796,27 @@ function checkLowStockNotifications() {
 }
 
 // ── Init
-runDailyDeduction();
-renderCards();
+// ── Init
+(async () => {
+  const session = JSON.parse(localStorage.getItem('auth_session') || sessionStorage.getItem('auth_session') || 'null');
+  if (session && session.caretakerName) {
+    // User device — load meds from caretaker's Firestore
+    const remoteMeds = await window.loadMedsFromFirestore(session.caretakerName);
+    if (remoteMeds.length) {
+      active = remoteMeds;
+      saveActive(active);
+    }
+    window.listenToMeds && window.listenToMeds(session.caretakerName, (meds) => {
+      active = meds;
+      localStorage.setItem(DISPLAY_KEY, JSON.stringify(meds));
+      renderCards();
+      checkLowStockNotifications();
+    });
+  }
+  runDailyDeduction();
+  renderCards();
+  checkLowStockNotifications();
+})();
 checkLowStockNotifications();
 if (Notification.permission === 'default') Notification.requestPermission();
 window.addEventListener('storage', e => {

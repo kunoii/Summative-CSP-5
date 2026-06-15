@@ -7,8 +7,18 @@
     "theme_color": "#03114F",
     "icons": [
         {
-            "src": "micIcon.png",
+            "src": "aten_app_icon.png",
+            "sizes": "1024x1024",
+            "type": "image/png"
+        },
+        {
+            "src": "aten_app_icon.png",
             "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "aten_app_icon.png",
+            "sizes": "512x512",
             "type": "image/png"
         }
     ]

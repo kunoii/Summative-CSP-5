@@ -265,15 +265,37 @@ header h1 { font-size: 22px; font-weight: 700; color: var(--yellow); letter-spac
 .changelog-date { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
 .changelog-desc { font-size: 14px; color: var(--text); line-height: 1.5; }
 
-/* ── Add/Edit modal ── */
-#modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(3px); z-index: 100; align-items: center; justify-content: center; padding: 20px; }
-#modal-overlay.show { display: flex; }
+#modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(3px);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  padding-bottom: calc(20px + env(safe-area-inset-bottom));
+}
+
+#modal-overlay.show {
+  display: flex;
+}
 
 #modal {
-  background: var(--surface); border-radius: 20px;
-  padding: 28px; width: 100%; max-width: 540px;
-  display: flex; flex-direction: column; gap: 18px;
-  box-shadow: 0 24px 64px rgba(0,0,0,0.15);
+  background: var(--surface);
+  border-radius: 20px;
+  padding: 28px;
+  padding-bottom: 80px;
+  width: 100%;
+  max-width: 540px;
+  max-height: calc(90vh - env(safe-area-inset-bottom));
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.15);
 }
 #modal h2 { font-size: 18px; font-weight: 700; color: var(--navy); }
 
@@ -516,10 +538,34 @@ header h1 { font-size: 22px; font-weight: 700; color: var(--yellow); letter-spac
   position: sticky; top: calc(51px + env(safe-area-inset-top)); z-index: 9;
 }
 
-/* ── Scrollable modal for many time slots ── */
-#modal { max-height: 90vh; overflow-y: auto; }
 
 @media (max-width: 600px) {
   header { padding: 14px 16px; }
   #med-container { padding: 16px; }
+}
+.time-slots {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.time-slot {
+  flex: 1;
+  min-width: 100px;
+  padding: 12px 8px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+  background: #f8fafc;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.15s;
+  font-family: var(--font);
+}
+
+.time-slot.selected {
+  background: var(--navy);
+  color: var(--yellow);
+  border-color: var(--navy);
 }

@@ -245,7 +245,7 @@
     }
 
     // ── User login (no password required) ───────────────────────────────────
-    function handleUserLogin() {
+   async function handleUserLogin() {
       hideMsg('user-error');
       const username      = document.getElementById('user-username').value.trim();
       const caretakerName = document.getElementById('user-caretaker').value.trim();
@@ -266,8 +266,14 @@
         if (caretakerName && !user.assigned) user.caretakerName = caretakerName;
       }
 
-      saveUsers(users);
-      saveSession({ username: user.username, role: 'user', caretakerName: user.caretakerName || '' }, keep);
+     saveUsers(users);
+     saveSession({ username: user.username, role: 'user', caretakerName: user.caretakerName || '' }, keep);
+
+      // Register FCM token if caretaker name provided
+      if (user.caretakerName && window.registerFCMToken) {
+        await window.registerFCMToken(user.caretakerName, user.username);
+      }
+
       window.location.href = destPage;
     }
 
@@ -358,6 +364,9 @@
       loginHidden ? handleSignup() : handleLogin();
     });
   </script>
-
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="firebase.js"></script>
 </body>
 </html>
