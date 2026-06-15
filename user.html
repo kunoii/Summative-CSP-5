@@ -222,6 +222,10 @@
 
   <div class="topbar">
     <h1>Object Scanner</h1>
+    <div style="margin-left:auto;display:flex;gap:8px;">
+      <a id="topbar-msg-btn"  style="width:38px;height:38px;display:flex;align-items:center;justify-content:center;font-size:18px;background:rgba(15,31,74,0.08);border:1.5px solid var(--border);border-radius:10px;text-decoration:none;transition:background 0.15s;" title="Message caretaker">💬</a>
+      <a id="topbar-call-btn" style="width:38px;height:38px;display:flex;align-items:center;justify-content:center;font-size:18px;background:rgba(15,31,74,0.08);border:1.5px solid var(--border);border-radius:10px;text-decoration:none;transition:background 0.15s;" title="Call caretaker">📞</a>
+    </div>
   </div>
 
   <!-- Danger popup (shown when AI detects a hazardous object) -->
@@ -681,6 +685,37 @@
 
     document.getElementById('danger-msg-btn').addEventListener('click',  () => document.getElementById('danger-popup').classList.remove('show'));
     document.getElementById('danger-call-btn').addEventListener('click', () => document.getElementById('danger-popup').classList.remove('show'));
+
+    // ── Topbar contact buttons ────────────────────────────────────────────────
+    (async function wireTopbarContact() {
+      const msgBtn  = document.getElementById('topbar-msg-btn');
+      const callBtn = document.getElementById('topbar-call-btn');
+      try {
+        const session   = JSON.parse(localStorage.getItem('auth_session') || sessionStorage.getItem('auth_session') || 'null');
+        const allUsers  = JSON.parse(localStorage.getItem('auth_users') || '[]');
+        const me        = session ? allUsers.find(u => u.username === session.username) : null;
+        const ctName    = me && (me.assignedTo || me.caretakerName || (session && session.caretakerName));
+        const caretaker = ctName ? allUsers.find(u => u.username === ctName) : null;
+        let phone = '';
+        if (caretaker && caretaker.phone) {
+          phone = caretaker.phone.includes(':') ? (await decryptPhone(caretaker.phone) || '') : caretaker.phone;
+        }
+        if (phone) {
+          msgBtn.href  = `sms:${phone}`;
+          callBtn.href = `tel:${phone}`;
+        } else {
+          msgBtn.style.opacity  = '0.35';
+          callBtn.style.opacity = '0.35';
+          msgBtn.style.pointerEvents  = 'none';
+          callBtn.style.pointerEvents = 'none';
+        }
+      } catch {
+        msgBtn.style.opacity  = '0.35';
+        callBtn.style.opacity = '0.35';
+        msgBtn.style.pointerEvents  = 'none';
+        callBtn.style.pointerEvents = 'none';
+      }
+    })();
   </script>
 
   <script>

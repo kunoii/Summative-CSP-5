@@ -47,11 +47,11 @@
   <!-- Logout confirm modal -->
   <div id="logout-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(3px);z-index:300;align-items:center;justify-content:center;padding:20px;" onclick="if(event.target===this)this.style.display='none'">
     <div style="background:#fff;border-radius:20px;padding:28px 24px;width:100%;max-width:340px;display:flex;flex-direction:column;gap:16px;box-shadow:0 24px 64px rgba(0,0,0,0.2);text-align:center;">
-      <h3 style="font-size:18px;font-weight:700;color:#1e3060;">Log Out?</h3>
-      <p style="font-size:15px;color:#60697a;line-height:1.5;">Are you sure you want to log out?</p>
+      <h3 id="logout-modal-title" style="font-size:18px;font-weight:700;color:#1e3060;">Log Out?</h3>
+      <p id="logout-modal-body" style="font-size:15px;color:#60697a;line-height:1.5;">Are you sure you want to log out?</p>
       <div style="display:flex;gap:10px;">
-        <button onclick="document.getElementById('logout-modal').style.display='none'" style="flex:1;padding:13px;font-size:15px;font-weight:600;background:#f4f6fc;color:#60697a;border:none;border-radius:12px;cursor:pointer;font-family:inherit;">Cancel</button>
-        <button onclick="confirmLogout()" style="flex:1;padding:13px;font-size:15px;font-weight:700;background:#b91c1c;color:#fff;border:none;border-radius:12px;cursor:pointer;font-family:inherit;">Log Out</button>
+        <button id="logout-modal-cancel" onclick="document.getElementById('logout-modal').style.display='none'" style="flex:1;padding:13px;font-size:15px;font-weight:600;background:#f4f6fc;color:#60697a;border:none;border-radius:12px;cursor:pointer;font-family:inherit;">Cancel</button>
+        <button id="logout-modal-confirm" onclick="confirmLogout()" style="flex:1;padding:13px;font-size:15px;font-weight:700;background:#b91c1c;color:#fff;border:none;border-radius:12px;cursor:pointer;font-family:inherit;">Log Out</button>
       </div>
     </div>
   </div>
@@ -73,7 +73,7 @@
       <h1>My Objects</h1>
       <div style="display:flex;align-items:center;gap:10px;margin-left:auto;">
         <button class="header-info-btn" onclick="document.getElementById('info-overlay').style.display='flex'" aria-label="Help">i</button>
-        <button onclick="logout()" style="background:none;border:1px solid rgba(255,255,255,0.35);color:rgba(255,255,255,0.75);font-size:13px;font-family:inherit;font-weight:600;padding:7px 14px;border-radius:8px;cursor:pointer;transition:border-color 0.15s,color 0.15s;" onmouseover="this.style.borderColor='rgba(255,255,255,0.8)';this.style.color='#fff'" onmouseout="this.style.borderColor='rgba(255,255,255,0.35)';this.style.color='rgba(255,255,255,0.75)'">Log Out</button>
+        <button id="logout-btn" onclick="logout()" style="background:none;border:1px solid rgba(255,255,255,0.35);color:rgba(255,255,255,0.75);font-size:13px;font-family:inherit;font-weight:600;padding:7px 14px;border-radius:8px;cursor:pointer;transition:border-color 0.15s,color 0.15s;" onmouseover="this.style.borderColor='rgba(255,255,255,0.8)';this.style.color='#fff'" onmouseout="this.style.borderColor='rgba(255,255,255,0.35)';this.style.color='rgba(255,255,255,0.75)'">Log Out</button>
       </div>
     </div>
   </header>
@@ -143,10 +143,15 @@
 
     async function translateDashboard(lang) {
       const staticEls = [
-        { sel: 'header h1',     en: 'My Objects' },
-        { sel: '#modal-cancel', en: 'Cancel' },
-        { sel: '#modal-save',   en: 'Save' },
-        { sel: '#lang-label',   en: 'Languages', emoji: '🌐 ' },
+        { sel: 'header h1',              en: 'My Objects' },
+        { sel: '#modal-cancel',          en: 'Cancel' },
+        { sel: '#modal-save',            en: 'Save' },
+        { sel: '#lang-label',            en: 'Languages', emoji: '🌐 ' },
+        { sel: '#logout-btn',            en: 'Log Out' },
+        { sel: '#logout-modal-title',    en: 'Log Out?' },
+        { sel: '#logout-modal-body',     en: 'Are you sure you want to log out?' },
+        { sel: '#logout-modal-cancel',   en: 'Cancel' },
+        { sel: '#logout-modal-confirm',  en: 'Log Out' },
       ];
 
       const fieldLabels = document.querySelectorAll('.field label');
@@ -223,21 +228,23 @@
     }
 
     // store translations for card buttons so renderCards can use them
-    window.ctTranslations = { view: 'VIEW INSTRUCTIONS', change: 'EDIT INSTRUCTIONS', delete: 'DELETE', addObject: 'Add Object +', addObjectModal: 'Add Object', editObjectModal: 'Edit Object', noObjects: 'No objects yet. Use the scanner to add one.' };
+    window.ctTranslations = { view: 'VIEW INSTRUCTIONS', change: 'EDIT INSTRUCTIONS', delete: 'DELETE', addObject: 'Add Object +', addObjectModal: 'Add Object', editObjectModal: 'Edit Object', noObjects: 'No objects yet. Use the scanner to add one.', noUsers: 'No users yet.', noUsersSubtext: 'Users who link your username during sign-up will appear here.' };
 
     async function loadTranslations(lang) {
       if (lang === 'en') {
-        window.ctTranslations = { view: 'VIEW INSTRUCTIONS', change: 'EDIT INSTRUCTIONS', delete: 'DELETE', addObject: 'Add Object +', addObjectModal: 'Add Object', editObjectModal: 'Edit Object', noObjects: 'No objects yet. Use the scanner to add one.' };
+        window.ctTranslations = { view: 'VIEW INSTRUCTIONS', change: 'EDIT INSTRUCTIONS', delete: 'DELETE', addObject: 'Add Object +', addObjectModal: 'Add Object', editObjectModal: 'Edit Object', noObjects: 'No objects yet. Use the scanner to add one.', noUsers: 'No users yet.', noUsersSubtext: 'Users who link your username during sign-up will appear here.' };
         return;
       }
-      const [view, change, del, addObject, noObjects] = await Promise.all([
+      const [view, change, del, addObject, noObjects, noUsers, noUsersSubtext] = await Promise.all([
         translateText('VIEW INSTRUCTIONS', lang),
         translateText('EDIT INSTRUCTIONS', lang),
         translateText('DELETE', lang),
         translateText('Add Object', lang),
         translateText('No objects yet. Use the scanner to add one.', lang),
+        translateText('No users yet.', lang),
+        translateText('Users who link your username during sign-up will appear here.', lang),
       ]);
-      window.ctTranslations = { view: view.toUpperCase(), change: change.toUpperCase(), delete: del.toUpperCase(), addObject: addObject + ' +', noObjects };
+      window.ctTranslations = { view: view.toUpperCase(), change: change.toUpperCase(), delete: del.toUpperCase(), addObject: addObject + ' +', noObjects, noUsers, noUsersSubtext };
     }
 
     async function initTranslations() {

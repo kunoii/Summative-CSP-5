@@ -206,14 +206,21 @@ function renderCards() {
   // Add button — always first
   const addRow = document.createElement('div');
   addRow.className = 'add-row';
-  addRow.innerHTML = `<button class="btn-add-med"><span>💊</span> Add Medication</button>`;
+  addRow.innerHTML = `<button class="btn-add-med">${window.medT?.addMedication || 'Add Medication'}</button>`;
   addRow.querySelector('button').addEventListener('click', () => openModal(null));
   container.appendChild(addRow);
+
+  // History button
+  const histRow = document.createElement('div');
+  histRow.className = 'history-row';
+  histRow.innerHTML = `<button class="btn-history">${window.medT?.medHistory || 'Medication History'}</button>`;
+  histRow.querySelector('button').addEventListener('click', openHistoryModal);
+  container.appendChild(histRow);
 
   if (active.length === 0) {
     const msg = document.createElement('p');
     msg.className = 'warning';
-    msg.textContent = 'No medications yet. Tap Add Medication to get started.';
+    msg.textContent = window.medT?.noMeds || 'No medications yet. Tap Add Medication to get started.';
     container.appendChild(msg);
     return;
   }
@@ -223,7 +230,7 @@ function renderCards() {
     row.className = 'med-row' + (isLow(med) ? ' med-row-low' : '');
 
     const pillText = typeof med.pillCount === 'number'
-      ? `<span class="med-row-pills${isLow(med) ? ' pills-low' : ''}">${isLow(med) ? '⚠️ ' : ''}${med.pillCount} pill${med.pillCount !== 1 ? 's' : ''} left</span>`
+      ? `<span class="med-row-pills${isLow(med) ? ' pills-low' : ''}">${med.pillCount} ${med.pillCount !== 1 ? (window.medT?.pills || 'pills') : (window.medT?.pill || 'pill')} ${window.medT?.left || 'left'}</span>`
       : '';
 
     row.innerHTML = `
@@ -246,7 +253,7 @@ function openCardPopup(med) {
   // pill count line
   const pillLine = document.getElementById('card-popup-pills');
   if (typeof med.pillCount === 'number') {
-    pillLine.textContent = (isLow(med) ? '⚠️ Low stock — ' : '') + `${med.pillCount} pill${med.pillCount !== 1 ? 's' : ''} remaining`;
+    pillLine.textContent = (isLow(med) ? (window.medT?.lowStock || 'Low stock') + ' — ' : '') + `${med.pillCount} ${med.pillCount !== 1 ? (window.medT?.pills || 'pills') : (window.medT?.pill || 'pill')} ${window.medT?.remaining || 'remaining'}`;
     pillLine.className   = 'card-popup-pills' + (isLow(med) ? ' pills-low' : '');
     pillLine.style.display = '';
   } else {
@@ -337,14 +344,14 @@ document.getElementById('buy-pills-btn').addEventListener('click', () => {
   list.innerHTML = '';
 
   if (lowMeds.length === 0) {
-    list.innerHTML = '<p class="buy-pills-empty">All medications are well stocked.</p>';
+    list.innerHTML = `<p class="buy-pills-empty">${window.medT?.wellStocked || 'All medications are well stocked.'}</p>`;
   } else {
     lowMeds.forEach(med => {
       const item = document.createElement('div');
       item.className = 'buy-pills-item';
       item.innerHTML = `
         <span class="buy-pills-name">${med.name}</span>
-        <span class="buy-pills-count">${med.pillCount} pill${med.pillCount !== 1 ? 's' : ''} left</span>
+        <span class="buy-pills-count">${med.pillCount} ${med.pillCount !== 1 ? (window.medT?.pills || 'pills') : (window.medT?.pill || 'pill')} ${window.medT?.left || 'left'}</span>
       `;
       list.appendChild(item);
     });
@@ -370,7 +377,7 @@ viewPopup.addEventListener('click', e => {
 function openModal(med) {
   if (med) {
     editingId        = med.id;
-    modalTitle.textContent = 'Change Medication';
+    modalTitle.textContent = window.medT?.changeMedication || 'Change Medication';
     inputName.value  = med.name;
     editTimesPerDay  = med.timesPerDay;
     editSelectedDays = [...med.days];
@@ -378,7 +385,7 @@ function openModal(med) {
     pillsInput.value = typeof med.pillCount === 'number' ? med.pillCount : '';
   } else {
     editingId        = null;
-    modalTitle.textContent = 'Add Medication';
+    modalTitle.textContent = window.medT?.addMedication || 'Add Medication';
     inputName.value  = '';
     editTimesPerDay  = 1;
     editSelectedDays = [];
@@ -499,8 +506,8 @@ function setupMic(btnId, targetInput) {
   btn.addEventListener('click', () => { listening ? recognition.stop() : recognition.start(); });
   recognition.addEventListener('start',  () => { listening=true;  btn.classList.add('listening');    btn.textContent='⏹'; });
   recognition.addEventListener('result', e  => { targetInput.value = e.results[0][0].transcript; });
-  recognition.addEventListener('end',    () => { listening=false; btn.classList.remove('listening'); btn.textContent='🎤'; });
-  recognition.addEventListener('error',  () => { listening=false; btn.classList.remove('listening'); btn.textContent='🎤'; });
+  recognition.addEventListener('end',    () => { listening=false; btn.classList.remove('listening'); btn.textContent='mic'; });
+  recognition.addEventListener('error',  () => { listening=false; btn.classList.remove('listening'); btn.textContent='mic'; });
 }
 
 // ── Print history
@@ -550,6 +557,53 @@ document.getElementById('print-btn').addEventListener('click', () => {
   const w = window.open('', '_blank');
   w.document.write(html);
   w.document.close();
+});
+
+// ── Medication History modal ─────────────────────────────────────────────────
+function openHistoryModal() {
+  renderHistoryList();
+  document.getElementById('history-overlay').classList.add('show');
+}
+
+function renderHistoryList() {
+  const log  = loadHistory();
+  const list = document.getElementById('history-list');
+  list.innerHTML = '';
+
+  if (log.length === 0) {
+    list.innerHTML = `<p class="history-empty">${window.medT?.noHistory || 'No medication history yet.'}</p>`;
+    return;
+  }
+
+  log.forEach((med, idx) => {
+    const entry = document.createElement('div');
+    entry.className = 'history-entry';
+    entry.innerHTML = `
+      <button class="history-delete-btn" data-idx="${idx}" aria-label="Delete">×</button>
+      <div class="history-entry-name">${med.name}</div>
+      <div class="history-entry-meta">
+        <span>${med.days.join(', ')}</span>
+        <span>${med.timesPerDay}x / day</span>
+      </div>
+      <div class="history-entry-dates">
+        ${med.startDate} — ${med.endDate || 'Present'}
+      </div>
+    `;
+    entry.querySelector('.history-delete-btn').addEventListener('click', () => {
+      history.splice(idx, 1);
+      saveHistory(history);
+      renderHistoryList();
+    });
+    list.appendChild(entry);
+  });
+}
+
+document.getElementById('history-close').addEventListener('click', () => {
+  document.getElementById('history-overlay').classList.remove('show');
+});
+document.getElementById('history-overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('history-overlay'))
+    document.getElementById('history-overlay').classList.remove('show');
 });
 
 setupMic('mic-name', document.getElementById('input-name'));
@@ -693,7 +747,7 @@ function checkLowStockNotifications() {
       banner.style.display = 'none';
     } else {
       banner.style.display = 'flex';
-      banner.innerHTML = `<span style="font-size:18px">⚠️</span><span>Running low: <strong>${lowMeds.map(m => `${m.name} (${m.pillCount})`).join(', ')}</strong> — tap a medication to restock.</span>`;
+      banner.innerHTML = `<span>Running low: <strong>${lowMeds.map(m => `${m.name} (${m.pillCount})`).join(', ')}</strong> — tap a medication to restock.</span>`;
     }
   }
 

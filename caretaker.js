@@ -68,8 +68,8 @@ function renderUserDashboard() {
   if (visible.length === 0) {
     udContainer.innerHTML = `
       <div style="padding:48px 24px;text-align:center;">
-        <p style="font-size:17px;color:var(--muted);margin-bottom:8px;">No users yet.</p>
-        <p style="font-size:14px;color:var(--muted);opacity:0.7;">Users who link your username during sign-up will appear here.</p>
+        <p style="font-size:17px;color:var(--muted);margin-bottom:8px;">${window.ctTranslations?.noUsers || 'No users yet.'}</p>
+        <p style="font-size:14px;color:var(--muted);opacity:0.7;">${window.ctTranslations?.noUsersSubtext || 'Users who link your username during sign-up will appear here.'}</p>
       </div>`;
     return;
   }

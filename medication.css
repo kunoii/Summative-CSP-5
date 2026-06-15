@@ -61,6 +61,72 @@ header h1 { font-size: 22px; font-weight: 700; color: var(--yellow); letter-spac
 
 /* ── Add button ── */
 .add-row { width: 100%; }
+
+/* ── History button ── */
+.history-row { width: 100%; }
+.btn-history {
+  width: 100%; padding: 14px;
+  font-size: 15px; font-weight: 700;
+  font-family: var(--font);
+  background: var(--surface);
+  color: var(--navy);
+  border: 2px solid var(--navy);
+  border-radius: 14px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  transition: background 0.15s, color 0.15s;
+}
+.btn-history:hover { background: var(--navy); color: var(--yellow); }
+
+/* ── History modal ── */
+#history-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.5); backdrop-filter: blur(3px);
+  z-index: 100; align-items: center; justify-content: center; padding: 20px;
+}
+#history-overlay.show { display: flex; }
+
+.history-box {
+  background: var(--surface); border-radius: 20px;
+  padding: 28px; width: 100%; max-width: 480px;
+  max-height: 80vh; overflow-y: auto;
+  position: relative; display: flex; flex-direction: column; gap: 14px;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.18);
+}
+.history-box h2 { font-size: 18px; font-weight: 700; color: var(--navy); margin-right: 24px; }
+
+#history-close {
+  position: absolute; top: 14px; right: 14px;
+  background: var(--bg); border: none; border-radius: 50%;
+  width: 34px; height: 34px; font-size: 20px; color: var(--muted);
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  line-height: 1; font-family: var(--font); transition: background 0.15s;
+}
+#history-close:hover { background: var(--border); }
+
+.history-entry {
+  position: relative;
+  background: var(--bg); border-radius: 12px;
+  padding: 14px 44px 14px 16px;
+  display: flex; flex-direction: column; gap: 4px;
+  border: 1px solid var(--border);
+}
+.history-entry-name { font-size: 16px; font-weight: 700; color: var(--navy); text-transform: capitalize; }
+.history-entry-meta { display: flex; gap: 12px; font-size: 13px; color: var(--muted); flex-wrap: wrap; }
+.history-entry-dates { font-size: 12px; color: var(--muted); font-weight: 600; margin-top: 2px; }
+
+.history-delete-btn {
+  position: absolute; top: 10px; right: 10px;
+  width: 28px; height: 28px;
+  background: var(--danger-bg); color: var(--danger);
+  border: none; border-radius: 50%;
+  font-size: 16px; line-height: 1;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  font-family: var(--font); transition: background 0.15s;
+}
+.history-delete-btn:hover { background: #fca5a5; }
+
+.history-empty { color: var(--muted); font-size: 15px; text-align: center; padding: 32px 0; }
+
 .btn-add-med {
   width: 100%; padding: 16px;
   font-size: 16px; font-weight: 700;
@@ -335,6 +401,7 @@ header h1 { font-size: 22px; font-weight: 700; color: var(--yellow); letter-spac
   border-radius: 8px;
   cursor: pointer;
   transition: background 0.15s;
+  margin-left: 44px;
 }
 #scan-close-btn:hover { background: rgba(255,255,255,0.14); }
 

@@ -84,6 +84,15 @@
     </div>
   </div>
 
+  <!-- Medication History modal -->
+  <div id="history-overlay">
+    <div class="history-box">
+      <button id="history-close">×</button>
+      <h2>Medication History</h2>
+      <div id="history-list"></div>
+    </div>
+  </div>
+
   <!-- Camera scan overlay -->
   <div id="scan-overlay">
     <div id="scan-overlay-inner">
@@ -109,7 +118,7 @@
         </div>
       </div>
       <div id="scan-controls">
-        <button id="scan-capture-btn" disabled>📷 Capture Label</button>
+        <button id="scan-capture-btn" disabled>Capture Label</button>
       </div>
     </div>
   </div>
@@ -118,13 +127,13 @@
   <div id="modal-overlay">
     <div id="modal">
       <h2 id="modal-title">Add Medication</h2>
-      <button id="scan-label-btn" type="button">📷 Scan Label</button>
+      <button id="scan-label-btn" type="button">Scan Label</button>
 
       <div class="field">
         <label>Medication name</label>
         <div class="input-row">
           <input id="input-name" type="text" placeholder='e.g. "Ibuprofen"' />
-          <button class="mic-btn" id="mic-name" type="button">🎤</button>
+          <button class="mic-btn" id="mic-name" type="button">mic</button>
         </div>
       </div>
 
@@ -200,8 +209,8 @@
       { sel: '#scan-start-cam-btn',   en: 'Enable Camera' },
       { sel: '#scan-cam-start p',     en: 'Allow camera access to scan the label' },
       { sel: '#scan-analyzing p',     en: 'Reading label…' },
-      { sel: '#scan-capture-btn',     en: '📷 Capture Label' },
-      { sel: '#scan-label-btn',       en: '📷 Scan Label' },
+      { sel: '#scan-capture-btn',     en: 'Capture Label' },
+      { sel: '#scan-label-btn',       en: 'Scan Label' },
       { sel: '#modal-cancel',         en: 'Cancel' },
       { sel: '#modal-save',           en: 'Save' },
       { sel: '#restock-cancel',       en: 'Cancel' },
@@ -212,6 +221,10 @@
       { sel: '#card-btn-cancel',      en: 'Cancel' },
       { sel: '#buy-pills-btn',        en: 'Buy Pills' },
       { sel: '#buy-pills-close',      en: '×' },
+      { sel: '#scan-close-btn',       en: '✕ Cancel' },
+      { sel: '#modal-title',          en: 'Add Medication' },
+      { sel: '#history-overlay h2',   en: 'Medication History' },
+      { sel: '#history-close',        en: '×' },
     ];
 
     const labelMap = [
@@ -224,6 +237,31 @@
       const el = document.querySelector(e.sel);
       if (el) el.textContent = results[i];
     });
+
+    // Translate view popup detail labels
+    const detailLabelEls = document.querySelectorAll('#view-popup .detail-label');
+    const detailTexts = ['Days', 'Times per day', 'Start date', 'Status'];
+    const detailResults = await Promise.all(detailTexts.map(t => translateText(t, lang)));
+    detailLabelEls.forEach((el, i) => { if (detailTexts[i]) el.textContent = detailResults[i]; });
+
+    // Populate global strings used by medication.js for dynamic content
+    const [addMed, changeMed, noMeds, medHistory, noHistory, pill, pills, left, remaining, lowStock, wellStocked] = await Promise.all([
+      translateText('Add Medication', lang),
+      translateText('Change Medication', lang),
+      translateText('No medications yet. Tap Add Medication to get started.', lang),
+      translateText('Medication History', lang),
+      translateText('No medication history yet.', lang),
+      translateText('pill', lang),
+      translateText('pills', lang),
+      translateText('left', lang),
+      translateText('remaining', lang),
+      translateText('Low stock', lang),
+      translateText('All medications are well stocked.', lang),
+    ]);
+    window.medT = { addMedication: addMed, changeMedication: changeMed, noMeds, medHistory, noHistory, pill, pills, left, remaining, lowStock, wellStocked };
+
+    // Re-render cards so the Add Medication button and empty-state text use translated strings
+    if (typeof renderCards === 'function') renderCards();
 
     // Field labels inside modal
     const fieldLabels = [

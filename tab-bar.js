@@ -84,7 +84,7 @@
     return true;
   }
 
-  tabs.forEach(tab => {
+  const tabEls = tabs.map(tab => {
     const a = document.createElement('a');
     a.href = tab.href;
     const active = tabIsActive(tab.href);
@@ -92,7 +92,33 @@
     a.setAttribute('aria-current', active ? 'page' : 'false');
     a.innerHTML = `<span>${tab.label}</span>`;
     bar.appendChild(a);
+    return a;
   });
 
   document.body.appendChild(bar);
+
+  // ── Translate tab labels based on caretaker_lang ──────────────────────────
+  function translateTabText(text, lang) {
+    if (lang === 'en') return Promise.resolve(text);
+    return fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=${lang}&dt=t&q=${encodeURIComponent(text)}`)
+      .then(r => r.json())
+      .then(data => data[0].map(x => x[0]).join(''))
+      .catch(() => text);
+  }
+
+  function applyTabTranslations(lang) {
+    if (lang === 'en') {
+      tabs.forEach((tab, i) => { tabEls[i].querySelector('span').textContent = tab.label; });
+      return;
+    }
+    Promise.all(tabs.map(tab => translateTabText(tab.label, lang))).then(translated => {
+      translated.forEach((text, i) => { tabEls[i].querySelector('span').textContent = text; });
+    });
+  }
+
+  applyTabTranslations(localStorage.getItem('caretaker_lang') || 'en');
+
+  window.addEventListener('storage', e => {
+    if (e.key === 'caretaker_lang') applyTabTranslations(e.newValue || 'en');
+  });
 })();
